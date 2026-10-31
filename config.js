@@ -2,7 +2,7 @@
    config.js（いさバス八丁）- 対象のバス停と事業者の設定
 
    いさバス（jlsawo/busboard）の3つののりばに、八丁から荻窪駅方面ののりばを加えた別アプリ。
-   八丁の stopId は、設定画面の「のりばを調べる」で調べて記入する。
+   八丁の stopId は、設定画面の「のりばを調べる」で調べて記入したもの。
 
    stopId は PC 版の Find-Stops.ps1 で調べた、荻窪駅・阿佐ヶ谷駅方面ののりば
    （ポール）です。GTFS-JP はのりばごとに stop_id を振るため、stop_id を選べば
@@ -47,8 +47,12 @@ var BUSBOARD_CONFIG = {
     { key: "houmukyoku",     operator: "seibu", name: "法務局杉並出張所", direction: "荻窪・阿佐ヶ谷方面", stopId: "30015-01", color: "#f7b8cb" },  // 桜色
     { key: "shimizu2_seibu", operator: "seibu", name: "清水二丁目",       direction: "荻窪駅方面",         stopId: "20124-01" },
     { key: "shimizu2_kanto", operator: "kanto", name: "清水二丁目",       direction: "荻窪駅方面",         stopId: "3303_2" },
-    // 八丁: どちらの事業者が停まるか・どののりばかは「のりばを調べる」の結果で決める
-    { key: "hacchou_seibu",  operator: "seibu", name: "八丁",             direction: "荻窪駅方面",         stopId: "", color: "#9fdcab" },  // 薄めの緑
-    { key: "hacchou_kanto",  operator: "kanto", name: "八丁",             direction: "荻窪駅方面",         stopId: "", color: "#9fdcab" }
+    // 八丁（杉並区）: 「のりばを調べる」の結果から荻窪駅行きののりばを選んだ。
+    //   西武 30012-01 … 荻14・荻13（石神井公園駅・上井草駅 → 荻窪駅）
+    //   関東 3105_2   … 荻30〜荻40（→ 荻窪駅北口）
+    // 使わないのりば: 30012-02 / 3105_1（反対方向）、30012-03 / 30012-04（法務局を通る荻15〜荻18。
+    // 30012-03 の便は法務局杉並出張所 30015-01 と同じバスなので、法務局の行として表示される）
+    { key: "hacchou_seibu",  operator: "seibu", name: "八丁",             direction: "荻窪駅方面",         stopId: "30012-01", color: "#9fdcab" },  // 薄めの緑
+    { key: "hacchou_kanto",  operator: "kanto", name: "八丁",             direction: "荻窪駅方面",         stopId: "3105_2",   color: "#9fdcab" }
   ]
 };
