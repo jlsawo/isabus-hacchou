@@ -1,0 +1,209 @@
+/* style.css - いさバス八丁の見た目 */
+:root {
+  --bg:        #06080b;
+  --row:       #12161c;
+  --row-alt:   #0e1217;
+  --fg:        #f2f5f8;
+  --dim:       #7d8794;
+  --accent:    #4ea8ff;   /* 残り分数 */
+  --soon:      #ffd24a;   /* まもなく */
+  --seibu:     #2f7fe0;
+  --kanto:     #e08a2f;
+  --stale:     #5a6270;
+  --hair:      #1e242c;
+}
+
+* { box-sizing: border-box; margin: 0; padding: 0; }
+
+html, body {
+  height: 100%;
+  background: var(--bg);
+  color: var(--fg);
+  font-family: "Noto Sans JP", "Hiragino Kaku Gothic ProN", "Yu Gothic", sans-serif;
+  -webkit-font-smoothing: antialiased;
+  -webkit-tap-highlight-color: transparent;
+  -webkit-user-select: none;
+  user-select: none;
+  touch-action: manipulation;
+  overflow: hidden;
+}
+
+body { display: flex; flex-direction: column; }
+
+/* ---------- ヘッダ ---------- */
+header {
+  flex: 0 0 auto;
+  display: flex; align-items: baseline; justify-content: space-between;
+  padding: 1.2vmin 2.4vmin 0.8vmin;
+  border-bottom: 1px solid var(--hair);
+}
+#title  { font-size: clamp(13px, 2.4vmin, 22px); color: var(--dim); letter-spacing: .08em; }
+#clock  { font-size: clamp(18px, 3.6vmin, 34px); font-variant-numeric: tabular-nums; font-weight: 600; }
+#spin {
+  display: inline-block; width: .9em; height: .9em; margin-left: .5em;
+  border: 2px solid var(--dim); border-top-color: transparent; border-radius: 50%;
+  opacity: 0; transition: opacity .15s;
+}
+#spin.on { opacity: 1; animation: spin .8s linear infinite; }
+@keyframes spin { to { transform: rotate(360deg); } }
+
+/* ---------- 一覧 ---------- */
+#list { flex: 1 1 auto; display: flex; flex-direction: column; list-style: none; min-height: 0; }
+
+.row {
+  flex: 1 1 0;
+  display: flex; align-items: center; gap: 2.2vmin;
+  padding: 0 2.4vmin;
+  background: var(--row);
+  border-bottom: 1px solid var(--hair);
+  min-height: 0;
+}
+.row:nth-child(even) { background: var(--row-alt); }
+
+.mins {
+  flex: 0 0 auto;
+  display: flex; align-items: baseline; justify-content: flex-end;
+  min-width: 4.6em;
+  color: var(--accent);
+  font-variant-numeric: tabular-nums;
+}
+.mins .num  { font-size: clamp(40px, 12vmin, 132px); font-weight: 800; line-height: .95; letter-spacing: -.02em; }
+.mins .unit { font-size: clamp(16px, 4vmin, 40px); font-weight: 600; margin-left: .12em; }
+.mins .soon { font-size: clamp(24px, 6.4vmin, 68px); font-weight: 800; color: var(--soon); }
+
+.row.is-soon .mins { color: var(--soon); }
+/* のりばごとの分数の色は config.js の stops[].color で指定する（app.js が当てる） */
+body.stale .row .mins { color: var(--stale) !important; }
+
+.info { flex: 1 1 auto; min-width: 0; display: flex; flex-direction: column; gap: .5vmin; }
+
+.line1 { display: flex; align-items: baseline; gap: 1.4vmin; min-width: 0; }
+.route {
+  flex: 0 0 auto;
+  font-size: clamp(16px, 3.8vmin, 40px); font-weight: 700;
+  padding: .06em .42em; border-radius: .28em;
+  background: #223042; color: #cfe4ff;
+}
+.sign {
+  font-size: clamp(18px, 4.2vmin, 44px); font-weight: 700;
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+
+.line2 { display: flex; align-items: center; gap: 1.2vmin; min-width: 0; color: var(--dim); }
+.stop { font-size: clamp(12px, 2.6vmin, 26px); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.op {
+  flex: 0 0 auto;
+  font-size: clamp(11px, 2.2vmin, 21px); font-weight: 700;
+  padding: .1em .5em; border-radius: .28em; color: #fff;
+}
+.op-seibu { background: var(--seibu); }
+.op-kanto { background: var(--kanto); }
+.tag {
+  flex: 0 0 auto;
+  font-size: clamp(10px, 2vmin, 19px);
+  padding: .1em .45em; border-radius: .28em;
+  border: 1px solid var(--stale); color: var(--stale);
+}
+
+.row.empty { justify-content: center; color: var(--stale); font-size: clamp(14px, 3vmin, 30px); }
+
+/* データが古いとき */
+body.stale .mins,
+body.stale .sign,
+body.stale .route { color: var(--stale); background-color: transparent; }
+body.stale .op { filter: grayscale(1) brightness(.7); }
+
+/* ---------- フッタ ---------- */
+footer {
+  flex: 0 0 auto;
+  display: flex; align-items: center; gap: 2vmin;
+  padding: 1.2vmin 2.4vmin;
+  border-top: 1px solid var(--hair);
+}
+#refresh {
+  flex: 0 0 auto;
+  font: inherit; font-size: clamp(15px, 3.2vmin, 32px); font-weight: 700;
+  color: var(--fg); background: #1d2530;
+  border: 1px solid #2c3644; border-radius: .5em;
+  padding: .45em 1.4em;
+}
+#refresh:active { background: #2b3646; }
+#refresh[disabled] { opacity: .45; }
+#meta { flex: 1 1 auto; min-width: 0; font-size: clamp(10px, 2vmin, 19px); color: #c3cad3; line-height: 1.45; }
+#meta .warn { color: var(--soon); }
+#disclaimer { font-size: clamp(8px, 1.5vmin, 14px); color: #8c95a1; line-height: 1.4; }
+footer { padding-bottom: calc(1.2vmin + env(safe-area-inset-bottom, 0px)); }
+
+/* スマホ縦持ち: 行に余裕があるので数字と行先を大きくする */
+@media (orientation: portrait) {
+  .row { gap: 4vw; padding: 0 4vw; }
+  .mins { min-width: 29vw; }   /* 2桁の分数でも行先の位置がずれないよう固定幅 */
+  .mins .num  { font-size: clamp(40px, 19vw, 120px); }
+  .mins .unit { font-size: clamp(16px, 5.5vw, 36px); }
+  .mins .soon { font-size: clamp(22px, 8vw, 56px); }
+  .route { font-size: clamp(15px, 5vw, 32px); }
+  .sign  { font-size: clamp(18px, 6.6vw, 42px); }
+  .line2 { flex-wrap: wrap; row-gap: .4em; }
+  .stop  { font-size: clamp(12px, 3.6vw, 24px); flex-basis: 100%; }
+  .op    { font-size: clamp(11px, 3.2vw, 21px); }
+  .tag   { font-size: clamp(10px, 3vw, 19px); }
+  #title { font-size: clamp(13px, 3.8vw, 22px); }
+  #clock { font-size: clamp(18px, 6vw, 34px); }
+  #meta  { font-size: clamp(10px, 2.9vw, 19px); }
+  #disclaimer { font-size: clamp(8px, 2.4vw, 14px); }
+}
+#gear {
+  flex: 0 0 auto;
+  font: inherit; font-size: clamp(18px, 3.6vmin, 34px); line-height: 1;
+  color: var(--dim); background: none; border: 0; padding: .3em;
+}
+
+/* ---------- 設定パネル ---------- */
+#panel {
+  position: fixed; inset: 0; z-index: 10;
+  display: none; flex-direction: column; gap: 14px;
+  padding: calc(20px + env(safe-area-inset-top, 0px)) 16px calc(20px + env(safe-area-inset-bottom, 0px));
+  background: var(--bg); overflow-y: auto;
+  -webkit-user-select: text; user-select: text;
+  font-size: 15px; line-height: 1.6;
+}
+#panel.open { display: flex; }
+#panel h2 { font-size: 19px; }
+#panel p  { color: var(--dim); font-size: 13px; }
+#panel label { font-size: 14px; color: var(--dim); }
+#token {
+  width: 100%; font: inherit; font-size: 16px; color: var(--fg);
+  background: var(--row); border: 1px solid #2c3644; border-radius: 8px; padding: 10px 12px;
+}
+.btns { display: flex; flex-wrap: wrap; gap: 10px; }
+.btns button {
+  font: inherit; font-size: 15px; font-weight: 700; color: var(--fg);
+  background: #1d2530; border: 1px solid #2c3644; border-radius: 8px; padding: 10px 16px;
+}
+.btns button.primary { background: #1f4f86; border-color: #2f6db3; }
+.btns button[disabled] { opacity: .45; }
+#tt-info { font-size: 13px; color: var(--dim); }
+#token-state { font-size: 13px; color: var(--accent); }
+#log:empty { display: none; }
+#diag {
+  white-space: pre-wrap; word-break: break-all;
+  font-size: 12px; line-height: 1.5; color: var(--dim);
+  border: 1px solid var(--hair); border-radius: 8px; padding: 10px 12px;
+}
+#diag:empty { display: none; }
+#find-q {
+  flex: 1 1 10em; min-width: 0; font: inherit; font-size: 16px; color: var(--fg);
+  background: var(--row); border: 1px solid #2c3644; border-radius: 8px; padding: 10px 12px;
+}
+#find-out {
+  white-space: pre-wrap; word-break: break-all;
+  font-size: 12px; line-height: 1.5; color: #c3cad3;
+  background: var(--row); border-radius: 8px; padding: 10px 12px;
+}
+#find-out:empty { display: none; }
+#log {
+  min-height: 6em; white-space: pre-wrap; word-break: break-all;
+  font-size: 12px; line-height: 1.5; color: var(--dim);
+  background: var(--row); border-radius: 8px; padding: 10px 12px;
+}
+#log .err { color: #ff7a7a; }

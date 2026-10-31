@@ -1,0 +1,67 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#06080b">
+<meta name="color-scheme" content="dark">
+<title>いさバス八丁</title>
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="icon" href="icons/icon.svg" type="image/svg+xml">
+<link rel="apple-touch-icon" href="icons/icon-192.png">
+<link rel="stylesheet" href="style.css?v=1">
+</head>
+<body>
+
+<header>
+  <span id="title">いさバス八丁</span>
+  <span><span id="clock">--:--</span><span id="spin"></span></span>
+</header>
+
+<ul id="list"></ul>
+
+<footer>
+  <div id="meta">
+    <div id="meta1">起動中…</div>
+    <div id="disclaimer">
+      公共交通オープンデータセンター提供データを利用。正確・完全であるとは限りません。
+    </div>
+  </div>
+  <button id="gear" type="button" aria-label="設定">⚙</button>
+  <button id="refresh" type="button">更新</button>
+</footer>
+
+<section id="panel" aria-label="設定">
+  <h2>設定</h2>
+
+  <label for="token">ODPT アクセストークン</label>
+  <input id="token" type="text" autocomplete="off" autocapitalize="off" autocorrect="off" spellcheck="false"
+         placeholder="developer.odpt.org のアクセストークン">
+  <p>developer.odpt.org の「アクセストークン」欄の英数字を、そのまま貼り付けてください。
+     トークンはこのスマホの中にだけ保存され、ODPT 以外には送られません。</p>
+  <div id="token-state"></div>
+
+  <div class="btns">
+    <button id="save" type="button" class="primary">保存して時刻表を取得</button>
+    <button id="rebuild" type="button">時刻表を今すぐ更新</button>
+    <button id="close" type="button">閉じる</button>
+  </div>
+
+  <div id="tt-info"></div>
+  <div id="diag"></div>
+  <div id="log"></div>
+
+  <h2>のりばを調べる</h2>
+  <p>停留所名で検索し、通る系統・行先・便数を一覧にします。結果を Claude に伝えると、表示するのりばを設定できます。</p>
+  <div class="btns">
+    <input id="find-q" type="text" autocomplete="off" placeholder="停留所名（例: 八丁）" value="八丁">
+    <button id="find" type="button">検索</button>
+  </div>
+  <div id="find-out"></div>
+</section>
+
+<script src="config.js?v=1"></script>
+<script src="gtfs.js?v=1"></script>
+<script src="app.js?v=1"></script>
+</body>
+</html>
