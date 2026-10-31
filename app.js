@@ -273,7 +273,7 @@ function fetchArrayBuffer(url) {
 /* ===========================================================================
    6. 端末内の保存
    =========================================================================== */
-var APP_VERSION = "18";   // 更新が反映されたかを設定画面で確かめるための番号（index.html の ?v= と揃える）
+var APP_VERSION = "19";   // 更新が反映されたかを設定画面で確かめるための番号（index.html の ?v= と揃える）
 var KEY_TOKEN = "busboard.token";
 // トークンは同じサイト（jlsawo.github.io）のいさバスと共有し、時刻表はアプリごとに分ける
 var KEY_DATA  = BUSBOARD_CONFIG.storageKey || "busboard.timetable";
@@ -501,7 +501,15 @@ function viewBbox(v) {
   var nw = worldLatLon(v.left, v.top, v.z), se = worldLatLon(v.left + v.w, v.top + v.h, v.z);
   return [se.lat, nw.lon, nw.lat, se.lon].map(function (x) { return x.toFixed(4); }).join(",");   // 南,西,北,東
 }
+// 道路の形は、まずアプリに同梱した roads.json（GitHub Actions が OpenStreetMap から取って入れたもの）を使う。
+// 外部のサーバーを待たないので、📍 を押した瞬間に描ける。無いときだけ、その場で取りに行く。
+var ROADS = null;
+fetch("roads.json").then(function (res) { return res.ok ? res.json() : null; }).then(function (j) {
+  if (j && j.ways && j.ways.length) { ROADS = j; if (BUBBLE) renderMapInner(); }
+}).catch(function () {});
+
 function loadOsm(bbox) {
+  if (ROADS) return ROADS;
   try { var o = JSON.parse(load(KEY_OSM) || "null"); return o && o.bbox === bbox ? o : null; } catch (_) { return null; }
 }
 
@@ -526,13 +534,22 @@ function fetchOsm(bbox) {
           'way["highway"](' + bbox + ');way["railway"~"^(rail|subway|light_rail)$"](' + bbox + ");" +
           'way["amenity"="bus_station"](' + bbox + ');way["public_transport"="station"](' + bbox + ');' +
           'way["building"="train_station"](' + bbox + "););out tags geom;";
-  fetch("https://overpass-api.de/api/interpreter", {
-    method: "POST", body: "data=" + encodeURIComponent(q),
-    headers: { "Content-Type": "application/x-www-form-urlencoded" }
-  }).then(function (res) {
-    if (!res.ok) throw new Error("HTTP " + res.status);
-    return res.json();
-  }).then(function (j) {
+  // 混んでいて断られることがあるので、だめなら別のサーバーを順に試す（1台20秒まで）
+  var servers = ["https://overpass-api.de/api/interpreter", "https://overpass.kumi.systems/api/interpreter",
+                 "https://overpass.private.coffee/api/interpreter"];
+  function tryServer(i) {
+    if (i >= servers.length) return Promise.reject(new Error("all failed"));
+    var ac = new AbortController(), timer = setTimeout(function () { ac.abort(); }, 20000);
+    return fetch(servers[i], {
+      method: "POST", body: "data=" + encodeURIComponent(q), signal: ac.signal,
+      headers: { "Content-Type": "application/x-www-form-urlencoded" }
+    }).then(function (res) {
+      clearTimeout(timer);
+      if (!res.ok) throw new Error("HTTP " + res.status);
+      return res.json();
+    }).catch(function () { clearTimeout(timer); return tryServer(i + 1); });
+  }
+  tryServer(0).then(function (j) {
     var ways = [];
     (j.elements || []).forEach(function (el) {
       var k = osmKind(el.tags || {});
@@ -638,7 +655,7 @@ function renderMapInner() {
   if (!BUBBLE) return;
   var b = BUBBLE, v = b.v;
   var bbox = viewBbox(v), osm = loadOsm(bbox);
-  if (!osm && !b.osmFailed) fetchOsm(bbox);
+  if (!osm && !b.osmFailed && !ROADS) fetchOsm(bbox);
   var pin = worldPx(b.lat, b.lon, v.z);
   $bubble.querySelector(".mb-map").innerHTML = drawSchematic(v, osm, b.stopId) +
     '<span class="mb-pin" aria-hidden="true" style="left:' + Math.round(pin.x - v.left) + "px;top:" + Math.round(pin.y - v.top) + 'px"></span>';

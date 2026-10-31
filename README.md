@@ -11,7 +11,8 @@ Android の Chrome で開いて「ホーム画面に追加」→「インスト�
 各行の **📍**（控えめな灰色）を押すと、吹き出しで乗り場の場所を見られます（× で閉じる）。
 地図は道路（ロータリー・青梅街道）と線路だけのシンプルな絵で、荻窪駅のすべてののりばを灰色の点で描き、その便の乗り場だけを赤く示します。
 駅は四角で描き（`config.js` の `returnMode.landmark`）、右上にコンパス（北が上）を置きます。文字は「青梅街道」と「荻窪駅」だけです。道路と線路の形は OpenStreetMap（© OpenStreetMap contributors）から
-最初の一回だけ取得して端末に保存し、のりばの位置は時刻表データの stops.txt を使います。
+GitHub Actions（`.github/workflows/roads.yml` → `tools/fetch_roads.py`）で取得して `roads.json` に同梱しているので、📍 を押すとすぐ描けます
+（毎月1日に自動で取り直し。`roads.json` が無いときだけ、その場で Overpass API から取得）。のりばの位置は時刻表データの stops.txt を使います。
 範囲はどの乗り場でも同じで、印の位置だけが変わります。
 降りるのりばは `config.js` の `returnMode.stops` で決めます。
 

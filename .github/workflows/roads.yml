@@ -1,0 +1,32 @@
+# 乗り場の地図に使う道路の形（roads.json）を OpenStreetMap から取り直してコミットする。
+# このファイルや tools/fetch_roads.py を変えたとき、毎月1日、または Actions の画面から手動で実行。
+name: roads.json を更新
+
+on:
+  push:
+    branches: [main]
+    paths: [".github/workflows/roads.yml", "tools/fetch_roads.py"]
+  schedule:
+    - cron: "17 3 1 * *"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  fetch:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: 道路の形を取得
+        run: python tools/fetch_roads.py
+      - name: 変わっていればコミット
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898341+github-actions[bot]@users.noreply.github.com"
+          git add roads.json
+          git diff --cached --quiet || git commit -m "roads.json を更新（OpenStreetMap）"
+          git push
