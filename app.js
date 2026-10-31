@@ -273,7 +273,7 @@ function fetchArrayBuffer(url) {
 /* ===========================================================================
    6. 端末内の保存
    =========================================================================== */
-var APP_VERSION = "19";   // 更新が反映されたかを設定画面で確かめるための番号（index.html の ?v= と揃える）
+var APP_VERSION = "20";   // 更新が反映されたかを設定画面で確かめるための番号（index.html の ?v= と揃える）
 var KEY_TOKEN = "busboard.token";
 // トークンは同じサイト（jlsawo.github.io）のいさバスと共有し、時刻表はアプリごとに分ける
 var KEY_DATA  = BUSBOARD_CONFIG.storageKey || "busboard.timetable";
@@ -518,7 +518,7 @@ function osmKind(t) {
   var hw = t.highway;
   if (/^(motorway|trunk|primary)(_link)?$/.test(hw)) return "major";
   if (/^(secondary|tertiary)(_link)?$/.test(hw)) return "mid";
-  if (/^(residential|unclassified|living_street|service|road)$/.test(hw)) return "minor";
+  if (hw === "service") return "minor";   // 住宅街の細い道は描かない。ロータリーの通路は service
   if (hw === "pedestrian" && t.area !== "yes") return "minor";
   if (/^(rail|subway|light_rail)$/.test(t.railway)) return "rail";
   if (t.amenity === "bus_station") return "bus";
@@ -571,7 +571,10 @@ function drawSchematic(v, osm, curId) {
   var s = Math.pow(2, v.z - 17);   // 線の太さは ズーム17 を基準にする
   function xy(lat, lon) { var p = worldPx(lat, lon, v.z); return [p.x - v.left, p.y - v.top]; }
   function path(g) { return g.map(function (p, i) { var q = xy(p[0], p[1]); return (i ? "L" : "M") + q[0].toFixed(1) + " " + q[1].toFixed(1); }).join(""); }
-  var ways = osm ? osm.ways : [];
+  // 画面の外にある道は描かない（roads.json は広めに取ってあるので、描く量を減らして速くする）
+  var ways = (osm ? osm.ways : []).filter(function (w) {
+    return w.g.some(function (p) { var q = xy(p[0], p[1]); return q[0] > -60 && q[0] < v.w + 60 && q[1] > -60 && q[1] < v.h + 60; });
+  });
   function of(k) { return ways.filter(function (w) { return w.k === k; }); }
 
   var out = '<svg class="mb-svg" viewBox="0 0 ' + v.w + " " + v.h + '" width="' + v.w + '" height="' + v.h + '">' +

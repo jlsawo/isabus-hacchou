@@ -66,8 +66,8 @@ var BUSBOARD_CONFIG = {
   returnMode: {
     label: "荻窪駅から",
     fromNamePrefix: "荻窪駅",
-    // 乗り場の地図に四角で描く駅（JR 荻窪駅の駅舎のあたり）。size は東西・南北の大きさ（メートル）
-    landmark: { name: "荻窪駅", lat: 35.70472, lon: 139.62000, size: [90, 28] },
+    // 乗り場の地図に四角で描く駅（JR 荻窪駅。OpenStreetMap の線路の真ん中に合わせた）。size は東西・南北の大きさ（メートル）
+    landmark: { name: "荻窪駅", lat: 35.70441, lon: 139.62000, size: [90, 28] },
     stops: [
       { key: "ret_houmukyoku",     operator: "seibu", name: "法務局杉並出張所", stopId: "30015-02", color: "#f7b8cb" },  // 桜色
       { key: "ret_shimizu2_seibu", operator: "seibu", name: "清水二丁目",       stopId: "20124-02" },
