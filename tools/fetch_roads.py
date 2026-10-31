@@ -35,8 +35,8 @@ def kind(t):
         return "major"
     if hw in ("secondary", "tertiary", "secondary_link", "tertiary_link"):
         return "mid"
-    # 住宅街の細い道は描かない（絵をすっきりさせる）。ロータリーやバス乗り場の通路は service
-    if hw == "service":
+    # 住宅街の細い道や、駐車場・私道の通路は描かない（絵をすっきりさせる）。ロータリーやバスの通路は描く
+    if hw == "service" and t.get("service", "") not in ("driveway", "parking_aisle", "alley", "drive-through", "emergency_access"):
         return "minor"
     if hw == "pedestrian" and t.get("area") != "yes":
         return "minor"

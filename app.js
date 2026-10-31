@@ -273,7 +273,7 @@ function fetchArrayBuffer(url) {
 /* ===========================================================================
    6. 端末内の保存
    =========================================================================== */
-var APP_VERSION = "20";   // 更新が反映されたかを設定画面で確かめるための番号（index.html の ?v= と揃える）
+var APP_VERSION = "21";   // 更新が反映されたかを設定画面で確かめるための番号（index.html の ?v= と揃える）
 var KEY_TOKEN = "busboard.token";
 // トークンは同じサイト（jlsawo.github.io）のいさバスと共有し、時刻表はアプリごとに分ける
 var KEY_DATA  = BUSBOARD_CONFIG.storageKey || "busboard.timetable";
@@ -518,7 +518,8 @@ function osmKind(t) {
   var hw = t.highway;
   if (/^(motorway|trunk|primary)(_link)?$/.test(hw)) return "major";
   if (/^(secondary|tertiary)(_link)?$/.test(hw)) return "mid";
-  if (hw === "service") return "minor";   // 住宅街の細い道は描かない。ロータリーの通路は service
+  // 住宅街の細い道や、駐車場・私道の通路は描かない。ロータリーやバスの通路（service）は描く
+  if (hw === "service" && !/^(driveway|parking_aisle|alley|drive-through|emergency_access)$/.test(t.service || "")) return "minor";
   if (hw === "pedestrian" && t.area !== "yes") return "minor";
   if (/^(rail|subway|light_rail)$/.test(t.railway)) return "rail";
   if (t.amenity === "bus_station") return "bus";
@@ -590,9 +591,9 @@ function drawSchematic(v, osm, curId) {
     var wd = Math.max(2, widths[k] * s);
     of(k).forEach(function (w) { out += '<path d="' + path(w.g) + '" fill="none" stroke="#ffffff" stroke-width="' + wd + '" stroke-linecap="round" stroke-linejoin="round"/>'; });
   });
+  // 線路は何本も並ぶので、細く淡い1本線にして目立たせない
   of("rail").forEach(function (w) {
-    out += '<path d="' + path(w.g) + '" fill="none" stroke="#8a929c" stroke-width="' + Math.max(2, 3.5 * s) + '"/>' +
-           '<path d="' + path(w.g) + '" fill="none" stroke="#eceef1" stroke-width="' + Math.max(1, 1.4 * s) + '" stroke-dasharray="' + (8 * s) + " " + (8 * s) + '"/>';
+    out += '<path d="' + path(w.g) + '" fill="none" stroke="#b4bbc4" stroke-width="' + Math.max(1, 1.6 * s) + '"/>';
   });
 
   // 文字は「青梅街道」と「荻窪駅」だけ
@@ -625,9 +626,11 @@ function drawSchematic(v, osm, curId) {
   if (lm) {
     var lp = xy(lm.lat, lm.lon);
     var pxPerM = Math.pow(2, v.z) * 256 / (40075016.686 * Math.cos(lm.lat * Math.PI / 180));
-    var sw = (lm.size ? lm.size[0] : 90) * pxPerM, sh = (lm.size ? lm.size[1] : 28) * pxPerM;
+    // 縮尺が小さくなっても建物とわかるよう、最小 70×20px にする
+    var sw = Math.max(70, (lm.size ? lm.size[0] : 90) * pxPerM), sh = Math.max(20, (lm.size ? lm.size[1] : 28) * pxPerM);
     out += '<rect x="' + (lp[0] - sw / 2).toFixed(1) + '" y="' + (lp[1] - sh / 2).toFixed(1) + '" width="' + sw.toFixed(1) + '" height="' + sh.toFixed(1) +
-           '" rx="2" fill="#cfd5dc" stroke="#9aa3ad" stroke-width="1.5"/>' + label(lp[0], lp[1], lm.name, 0);
+           '" rx="3" fill="#6b7480" stroke="#4b5563" stroke-width="1"/>' +
+           '<text x="' + lp[0].toFixed(1) + '" y="' + lp[1].toFixed(1) + '" text-anchor="middle" dominant-baseline="middle" class="mb-station">' + esc(lm.name) + "</text>";
   }
 
   // 荻窪駅のすべてののりばを点で（押した便の乗り場は、この上に赤い印を重ねる）
@@ -668,7 +671,7 @@ function openMapBubble(btn) {
   var lat = parseFloat(btn.getAttribute("data-lat")), lon = parseFloat(btn.getAttribute("data-lon"));
   if (isNaN(lat) || isNaN(lon)) return;
 
-  var w = Math.min(320, window.innerWidth - 24), h = Math.round(w * 0.68);
+  var w = Math.min(320, window.innerWidth - 24), h = Math.round(w * 0.8);   // 縦にも余裕を持たせ、ロータリーが大きく見える縮尺に
   BUBBLE = { v: mapView(w, h), lat: lat, lon: lon, stopId: btn.getAttribute("data-stop") };
 
   $bubble.innerHTML =

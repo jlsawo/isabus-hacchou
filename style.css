@@ -164,6 +164,7 @@ body.stale .row .mins { color: var(--stale) !important; }
   paint-order: stroke; stroke: #fff; stroke-width: 3px; stroke-linejoin: round;
 }
 .mb-status { font-size: 11px; fill: #6b7280; }
+.mb-station { font-size: 12px; font-weight: 700; fill: #fff; }
 .mb-north { font-size: 10px; font-weight: 700; fill: #4b5563; paint-order: stroke; stroke: #eceef1; stroke-width: 3px; }
 /* 今回の乗り場: 灰色の点（直径8px＋白い縁）と同じ形で、ひとまわり大きく、色だけ赤に */
 .mb-pin {
