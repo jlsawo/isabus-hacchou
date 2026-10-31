@@ -273,7 +273,7 @@ function fetchArrayBuffer(url) {
 /* ===========================================================================
    6. 端末内の保存
    =========================================================================== */
-var APP_VERSION = "6";   // 更新が反映されたかを設定画面で確かめるための番号（index.html の ?v= と揃える）
+var APP_VERSION = "7";   // 更新が反映されたかを設定画面で確かめるための番号（index.html の ?v= と揃える）
 var KEY_TOKEN = "busboard.token";
 // トークンは同じサイト（jlsawo.github.io）のいさバスと共有し、時刻表はアプリごとに分ける
 var KEY_DATA  = BUSBOARD_CONFIG.storageKey || "busboard.timetable";
@@ -370,12 +370,12 @@ function render() {
     if (mins < 0) mins = 0;
     var soon = mins < 1;
     var minsHtml = soon
-      ? '<span class="soon">まもなく</span>'
+      ? '<span class="soon-wrap"><span class="soon-dot" aria-hidden="true"></span><span class="soon">まもなく</span></span>'
       : '<span class="num">' + mins + '</span><span class="unit">分</span>';
 
     html +=
       '<li class="row stop-' + r.stop.key + (soon ? " is-soon" : "") + '">' +
-        '<div class="mins"' + (soon ? "" : stopColorAttr(r.stop.colorKey || r.stop.key)) + ">" + minsHtml + "</div>" +
+        '<div class="mins"' + stopColorAttr(r.stop.colorKey || r.stop.key) + ">" + minsHtml + "</div>" +
         '<div class="info">' +
           '<div class="line1">' +
             '<span class="route">' + esc(r.route) + "</span>" +

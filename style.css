@@ -80,9 +80,23 @@ header {
 }
 .mins .num  { font-size: clamp(40px, 12vmin, 132px); font-weight: 800; line-height: .95; letter-spacing: -.02em; }
 .mins .unit { font-size: clamp(16px, 4vmin, 40px); font-weight: 600; margin-left: .12em; }
-.mins .soon { font-size: clamp(24px, 6.4vmin, 68px); font-weight: 800; color: var(--soon); }
+/* まもなく: 文字はのりばの色のまま、上にオレンジの丸印を付けて目立たせる */
+.mins .soon-wrap { display: inline-flex; flex-direction: column; align-items: center; gap: .25em; }
+.mins .soon { font-size: clamp(24px, 6.4vmin, 68px); font-weight: 800; color: inherit; line-height: 1.1; }
+.mins .soon-dot {
+  position: relative; width: .9em; height: .9em; border-radius: 50%;
+  font-size: clamp(24px, 6.4vmin, 68px);
+  background: #ff8a1f; box-shadow: 0 0 0 .08em #ffb36b inset;
+}
+.mins .soon-dot::after {
+  content: ""; position: absolute; inset: 0; border-radius: 50%;
+  border: .1em solid #ff8a1f; animation: soon-pulse 1.6s ease-out infinite;
+}
+@keyframes soon-pulse { from { transform: scale(1); opacity: .9; } to { transform: scale(1.9); opacity: 0; } }
+@media (prefers-reduced-motion: reduce) { .mins .soon-dot::after { animation: none; } }
+body.stale .mins .soon-dot { background: var(--stale); box-shadow: none; }
+body.stale .mins .soon-dot::after { display: none; }
 
-.row.is-soon .mins { color: var(--soon); }
 /* のりばごとの分数の色は config.js の stops[].color で指定する（app.js が当てる） */
 body.stale .row .mins { color: var(--stale) !important; }
 
@@ -153,7 +167,8 @@ footer { padding-bottom: calc(1.2vmin + env(safe-area-inset-bottom, 0px)); }
   .mins { min-width: 29vw; }   /* 2桁の分数でも行先の位置がずれないよう固定幅 */
   .mins .num  { font-size: clamp(40px, 19vw, 120px); }
   .mins .unit { font-size: clamp(16px, 5.5vw, 36px); }
-  .mins .soon { font-size: clamp(22px, 8vw, 56px); }
+  .mins .soon     { font-size: clamp(20px, 6.6vw, 48px); }   /* 分数の欄の幅に収める */
+  .mins .soon-dot { font-size: clamp(22px, 8vw, 56px); }
   .route { font-size: clamp(15px, 5vw, 32px); }
   .sign  { font-size: clamp(18px, 6.6vw, 42px); }
   .line2 { flex-wrap: wrap; row-gap: .4em; }
