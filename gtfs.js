@@ -10,6 +10,10 @@
 
 var GTFS = (function () {
 
+  // 保存する時刻表の形式の番号。中身の形を変えたら上げると、スマホ側で自動的に作り直される
+  //   2: 「荻窪駅から」の乗り場に緯度・経度を持たせた
+  var FORMAT = 2;
+
   /* ---------- 取得 ---------- */
   function addToken(url, token) {
     return url + (url.indexOf("?") >= 0 ? "&" : "?") + "acl:consumerKey=" + encodeURIComponent(token);
@@ -281,7 +285,10 @@ var GTFS = (function () {
             var name = col(v, ix, "stop_name");
             if (ret.fromNamePrefix && name.indexOf(ret.fromNamePrefix) === 0) {
               var pc = col(v, ix, "platform_code");
-              fromPoles[id] = name + (pc ? " " + pc + (/^\d+$/.test(pc) ? "番" : "") : "");
+              fromPoles[id] = {
+                name: name + (pc ? " " + pc + (/^\d+$/.test(pc) ? "番" : "") : ""),
+                lat: col(v, ix, "stop_lat"), lon: col(v, ix, "stop_lon")   // 地図で乗り場を示すため
+              };
             }
           }, true).then(function () {
             Object.keys(targets).concat(Object.keys(retTargets)).forEach(function (id) {
@@ -365,8 +372,9 @@ var GTFS = (function () {
             var key = rs.key + "@" + h.from.sid;
             if (!(key in retStopMap)) {
               retStopMap[key] = retStops.length;
-              retStops.push({ key: key, colorKey: rs.key, name: fromPoles[h.from.sid] || ret.fromNamePrefix,
-                              direction: "→ " + rs.name, stopId: h.from.sid });
+              var pole = fromPoles[h.from.sid] || {};
+              retStops.push({ key: key, colorKey: rs.key, name: pole.name || ret.fromNamePrefix,
+                              direction: "→ " + rs.name, stopId: h.from.sid, lat: pole.lat, lon: pole.lon });
             }
             used[info.service] = 1;
             // 荻窪駅を出る時刻で並べる。[8] は降りるのりばに着く時刻
@@ -446,6 +454,7 @@ var GTFS = (function () {
       return {
         builtAt:    now.getFullYear() + "-" + ("0" + (now.getMonth() + 1)).slice(-2) + "-" + ("0" + now.getDate()).slice(-2),
         builtAtMs:  now.getTime(),
+        format:     FORMAT,
         validUntil: keys.length ? keys[keys.length - 1] : null,
         ops: ops, stops: stops, routes: routes, signs: signs, dates: dates, trips: trips,
         retTrips: retTrips, retStops: retStops,
@@ -530,5 +539,5 @@ var GTFS = (function () {
     return chain.then(function () { return lines.join("\n"); });
   }
 
-  return { build: build, addToken: addToken, isHoliday: isHoliday, findStops: findStops };
+  return { FORMAT: FORMAT, build: build, addToken: addToken, isHoliday: isHoliday, findStops: findStops };
 })();

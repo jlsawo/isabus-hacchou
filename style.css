@@ -135,6 +135,13 @@ body.stale .row .mins { color: var(--stale) !important; }
 }
 .op-seibu { background: var(--seibu); }
 /* 「荻窪駅から」で降りるのりばに着く見込み時刻 */
+/* 乗り場の地図ボタン（荻窪駅から） */
+.map {
+  flex: 0 0 auto; text-decoration: none;
+  font-size: clamp(11px, 2.2vmin, 21px); font-weight: 700; color: #06303a;
+  background: #9fe3ee; border-radius: .28em; padding: .1em .55em;
+}
+.map::before { content: "📍"; margin-right: .15em; }
 .arr { flex: 0 0 auto; font-size: clamp(11px, 2.2vmin, 21px); font-weight: 700; color: #c3cad3; font-variant-numeric: tabular-nums; }
 .op-kanto { background: var(--kanto); }
 .tag {
@@ -188,6 +195,7 @@ footer { padding-bottom: calc(1.2vmin + env(safe-area-inset-bottom, 0px)); }
   .op    { font-size: clamp(11px, 3.2vw, 21px); }
   .tag   { font-size: clamp(10px, 3vw, 19px); }
   .arr   { font-size: clamp(11px, 3.4vw, 22px); }
+  .map   { font-size: clamp(12px, 3.6vw, 22px); padding: .2em .7em; }   /* 指で押しやすく */
   #title { font-size: clamp(13px, 3.8vw, 22px); }
   #clock { font-size: clamp(18px, 6vw, 34px); }
   #mode  { font-size: clamp(14px, 4.2vw, 26px); }

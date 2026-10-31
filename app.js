@@ -273,7 +273,7 @@ function fetchArrayBuffer(url) {
 /* ===========================================================================
    6. 端末内の保存
    =========================================================================== */
-var APP_VERSION = "9";   // 更新が反映されたかを設定画面で確かめるための番号（index.html の ?v= と揃える）
+var APP_VERSION = "10";   // 更新が反映されたかを設定画面で確かめるための番号（index.html の ?v= と揃える）
 var KEY_TOKEN = "busboard.token";
 // トークンは同じサイト（jlsawo.github.io）のいさバスと共有し、時刻表はアプリごとに分ける
 var KEY_DATA  = BUSBOARD_CONFIG.storageKey || "busboard.timetable";
@@ -391,6 +391,7 @@ function render() {
             '<span class="stop">' + esc(r.stop.name) + " " + esc(r.stop.direction) + "</span>" +
             '<span class="op op-' + r.op.key + '">' + esc(r.op.label) + "</span>" +
             (r.arrMs ? '<span class="arr">' + hhmm(new Date(r.arrMs)) + "着</span>" : "") +
+            (r.stop.lat && r.stop.lon ? mapLink(r.stop) : "") +
             (r.live ? "" : '<span class="tag">予定</span>') +
           "</div>" +
         "</div>" +
@@ -435,6 +436,13 @@ function setExclude(on) {
   $e.setAttribute("aria-pressed", STATE.exclude ? "true" : "false");
   $e.classList.toggle("on", STATE.exclude);
   render();
+}
+
+// 乗り場の場所を地図アプリ（Google マップ）で開くボタン
+function mapLink(stop) {
+  var q = encodeURIComponent(stop.lat + "," + stop.lon);
+  return '<a class="map" href="https://www.google.com/maps/search/?api=1&amp;query=' + q +
+         '" target="_blank" rel="noopener" aria-label="' + esc(stop.name) + 'の場所を地図で見る">地図</a>';
 }
 
 function setMode(mode) {
@@ -593,6 +601,7 @@ function stopsChanged(d) {
 
 function timetableIsOld(d) {
   if (!d || !d.builtAtMs) return true;
+  if ((d.format || 1) !== GTFS.FORMAT) return true;   // 時刻表の形式が変わったら作り直す
   if (stopsChanged(d)) return true;   // のりばの設定を変えたら、ボタンを押さなくても作り直す
   var ageDays = (Date.now() - d.builtAtMs) / 86400000;
   return ageDays >= BUSBOARD_CONFIG.timetableMaxAgeDays;
