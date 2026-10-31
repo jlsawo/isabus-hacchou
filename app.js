@@ -273,7 +273,7 @@ function fetchArrayBuffer(url) {
 /* ===========================================================================
    6. 端末内の保存
    =========================================================================== */
-var APP_VERSION = "12";   // 更新が反映されたかを設定画面で確かめるための番号（index.html の ?v= と揃える）
+var APP_VERSION = "13";   // 更新が反映されたかを設定画面で確かめるための番号（index.html の ?v= と揃える）
 var KEY_TOKEN = "busboard.token";
 // トークンは同じサイト（jlsawo.github.io）のいさバスと共有し、時刻表はアプリごとに分ける
 var KEY_DATA  = BUSBOARD_CONFIG.storageKey || "busboard.timetable";
@@ -448,7 +448,16 @@ function mapLink(stop) {
    国土地理院の地図（地理院タイル）を数枚並べて、乗り場の位置に印を付ける。
    地図の範囲はどの乗り場でも同じ（すべての乗り場が入る荻窪駅前）にして、印の位置だけを変える。
    外部の地図アプリは開かず、× で閉じる。 */
-var MAP_MAX_ZOOM = 17;   // 1画素がおよそ1m。乗り場が近くに集まっていればこの縮尺
+var MAP_MAX_ZOOM = 18;   // 1画素がおよそ0.5m。乗り場が近くに集まっていれば、ロータリーが大きく見えるこの縮尺
+
+// 地図の種類。淡色地図は白黒にして記号やオレンジの道路を目立たなくする。写真は記号が無い
+var MAP_LAYERS = {
+  pale:  { label: "地図", url: "https://cyberjapandata.gsi.go.jp/xyz/pale/{z}/{x}/{y}.png",         credit: "地理院タイル（淡色地図）" },
+  photo: { label: "写真", url: "https://cyberjapandata.gsi.go.jp/xyz/seamlessphoto/{z}/{x}/{y}.jpg", credit: "地理院タイル（全国最新写真）" }
+};
+var KEY_MAPLAYER = (BUSBOARD_CONFIG.storageKey || "busboard") + ".maplayer";
+function mapLayer() { return MAP_LAYERS[load(KEY_MAPLAYER)] ? load(KEY_MAPLAYER) : "pale"; }
+function tileUrl(layer, z, x, y) { return MAP_LAYERS[layer].url.replace("{z}", z).replace("{x}", x).replace("{y}", y); }
 var $bubble = document.getElementById("mapbubble");
 
 // 緯度経度 → ズーム z の世界全体での画素位置
@@ -482,20 +491,24 @@ function openMapBubble(btn) {
   var v = mapView(w, h), left = v.left, top = v.top;
   var pin = worldPx(lat, lon, v.z);
 
-  var tiles = "";
+  var layer = mapLayer(), tiles = "";
   for (var ty = Math.floor(top / 256); ty <= Math.floor((top + h) / 256); ty++) {
     for (var tx = Math.floor(left / 256); tx <= Math.floor((left + w) / 256); tx++) {
-      tiles += '<img alt="" src="https://cyberjapandata.gsi.go.jp/xyz/std/' + v.z + "/" + tx + "/" + ty +
-               '.png" style="left:' + Math.round(tx * 256 - left) + "px;top:" + Math.round(ty * 256 - top) + 'px">';
+      tiles += '<img alt="" data-z="' + v.z + '" data-x="' + tx + '" data-y="' + ty + '" src="' + tileUrl(layer, v.z, tx, ty) +
+               '" style="left:' + Math.round(tx * 256 - left) + "px;top:" + Math.round(ty * 256 - top) + 'px">';
     }
   }
+  var tabs = Object.keys(MAP_LAYERS).map(function (k) {
+    return '<button type="button" class="mb-layer' + (k === layer ? " on" : "") + '" data-layer="' + k + '">' + MAP_LAYERS[k].label + "</button>";
+  }).join("");
 
   $bubble.innerHTML =
     '<div class="mb-head"><span class="mb-title">' + esc(btn.getAttribute("data-name")) + "</span>" +
+      '<span class="mb-layers">' + tabs + "</span>" +
       '<button type="button" class="mb-close" aria-label="閉じる">×</button></div>' +
-    '<div class="mb-map" style="width:' + w + "px;height:" + h + 'px">' + tiles +
+    '<div class="mb-map ' + layer + '" style="width:' + w + "px;height:" + h + 'px">' + tiles +
       '<span class="mb-pin" aria-hidden="true" style="left:' + Math.round(pin.x - left) + "px;top:" + Math.round(pin.y - top) + 'px"></span></div>' +
-    '<div class="mb-credit">出典: <a href="https://maps.gsi.go.jp/development/ichiran.html" target="_blank" rel="noopener">地理院タイル</a></div>' +
+    '<div class="mb-credit">出典: <a href="https://maps.gsi.go.jp/development/ichiran.html" target="_blank" rel="noopener">' + MAP_LAYERS[layer].credit + "</a></div>" +
     '<span class="mb-arrow"></span>';
   $bubble.hidden = false;
 
@@ -511,8 +524,21 @@ function openMapBubble(btn) {
 
 function closeMapBubble() { $bubble.hidden = true; $bubble.innerHTML = ""; }
 
+// 地図と写真の切り替え（吹き出しの位置はそのまま、絵だけ差し替える。選んだほうを覚える）
+function switchMapLayer(layer) {
+  save(KEY_MAPLAYER, layer);
+  $bubble.querySelectorAll(".mb-map img").forEach(function (img) {
+    img.src = tileUrl(layer, img.getAttribute("data-z"), img.getAttribute("data-x"), img.getAttribute("data-y"));
+  });
+  $bubble.querySelector(".mb-map").className = "mb-map " + layer;
+  $bubble.querySelectorAll(".mb-layer").forEach(function (b) { b.classList.toggle("on", b.getAttribute("data-layer") === layer); });
+  $bubble.querySelector(".mb-credit a").textContent = MAP_LAYERS[layer].credit;
+}
+
 $bubble.addEventListener("click", function (e) {
   if (e.target.closest(".mb-close")) closeMapBubble();
+  var tab = e.target.closest(".mb-layer");
+  if (tab) switchMapLayer(tab.getAttribute("data-layer"));
 });
 document.addEventListener("keydown", function (e) { if (e.key === "Escape") closeMapBubble(); });
 

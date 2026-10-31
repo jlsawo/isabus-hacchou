@@ -159,6 +159,15 @@ body.stale .row .mins { color: var(--stale) !important; }
 }
 .mb-map { position: relative; overflow: hidden; border-radius: 8px; background: #e8e4d8; }
 .mb-map img { position: absolute; width: 256px; height: 256px; max-width: none; }
+.mb-map.pale img { filter: grayscale(1) contrast(1.08); }   /* 淡色地図を白黒に。赤い印だけが目立つ */
+.mb-map.pale { background: #f2f2f2; }
+.mb-map.photo { background: #6b6f66; }
+.mb-layers { display: inline-flex; border: 1px solid #c7ced6; border-radius: 999px; overflow: hidden; }
+.mb-layer {
+  font: inherit; font-size: 13px; font-weight: 700; color: #4b5563; background: #fff;
+  border: 0; padding: 6px 12px;
+}
+.mb-layer.on { color: #fff; background: #3b4552; }
 .mb-pin {
   position: absolute; width: 18px; height: 18px; margin: -9px 0 0 -9px;   /* 位置は app.js が指定 */
   border-radius: 50%; background: #e8332a; border: 3px solid #fff; box-shadow: 0 0 0 2px #e8332a, 0 2px 6px rgba(0, 0, 0, .4);
