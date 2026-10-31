@@ -273,7 +273,7 @@ function fetchArrayBuffer(url) {
 /* ===========================================================================
    6. 端末内の保存
    =========================================================================== */
-var APP_VERSION = "10";   // 更新が反映されたかを設定画面で確かめるための番号（index.html の ?v= と揃える）
+var APP_VERSION = "11";   // 更新が反映されたかを設定画面で確かめるための番号（index.html の ?v= と揃える）
 var KEY_TOKEN = "busboard.token";
 // トークンは同じサイト（jlsawo.github.io）のいさバスと共有し、時刻表はアプリごとに分ける
 var KEY_DATA  = BUSBOARD_CONFIG.storageKey || "busboard.timetable";
@@ -438,12 +438,61 @@ function setExclude(on) {
   render();
 }
 
-// 乗り場の場所を地図アプリ（Google マップ）で開くボタン
+// 乗り場の場所を吹き出しの小さな地図で見せるボタン（1文字分のアイコン）
 function mapLink(stop) {
-  var q = encodeURIComponent(stop.lat + "," + stop.lon);
-  return '<a class="map" href="https://www.google.com/maps/search/?api=1&amp;query=' + q +
-         '" target="_blank" rel="noopener" aria-label="' + esc(stop.name) + 'の場所を地図で見る">地図</a>';
+  return '<button type="button" class="map" data-lat="' + esc(stop.lat) + '" data-lon="' + esc(stop.lon) +
+         '" data-name="' + esc(stop.name) + '" aria-label="' + esc(stop.name) + 'の場所を地図で見る">📍</button>';
 }
+
+/* ---------- 乗り場の地図の吹き出し ----------
+   国土地理院の地図（地理院タイル）を数枚並べて、乗り場の位置に印を付ける。
+   外部の地図アプリは開かず、× で閉じる。 */
+var MAP_ZOOM = 17;   // 1画素がおよそ1m。駅前の様子がわかる縮尺
+var $bubble = document.getElementById("mapbubble");
+
+function openMapBubble(btn) {
+  var lat = parseFloat(btn.getAttribute("data-lat")), lon = parseFloat(btn.getAttribute("data-lon"));
+  if (isNaN(lat) || isNaN(lon)) return;
+
+  var w = Math.min(320, window.innerWidth - 24), h = Math.round(w * 0.68);
+  var n = Math.pow(2, MAP_ZOOM), rad = lat * Math.PI / 180;
+  var px = (lon + 180) / 360 * n * 256;                                                   // 世界全体での画素位置
+  var py = (1 - Math.log(Math.tan(rad) + 1 / Math.cos(rad)) / Math.PI) / 2 * n * 256;
+  var left = px - w / 2, top = py - h / 2;
+
+  var tiles = "";
+  for (var ty = Math.floor(top / 256); ty <= Math.floor((top + h) / 256); ty++) {
+    for (var tx = Math.floor(left / 256); tx <= Math.floor((left + w) / 256); tx++) {
+      tiles += '<img alt="" src="https://cyberjapandata.gsi.go.jp/xyz/std/' + MAP_ZOOM + "/" + tx + "/" + ty +
+               '.png" style="left:' + Math.round(tx * 256 - left) + "px;top:" + Math.round(ty * 256 - top) + 'px">';
+    }
+  }
+
+  $bubble.innerHTML =
+    '<div class="mb-head"><span class="mb-title">' + esc(btn.getAttribute("data-name")) + "</span>" +
+      '<button type="button" class="mb-close" aria-label="閉じる">×</button></div>' +
+    '<div class="mb-map" style="width:' + w + "px;height:" + h + 'px">' + tiles +
+      '<span class="mb-pin" aria-hidden="true"></span></div>' +
+    '<div class="mb-credit">出典: <a href="https://maps.gsi.go.jp/development/ichiran.html" target="_blank" rel="noopener">地理院タイル</a></div>' +
+    '<span class="mb-arrow"></span>';
+  $bubble.hidden = false;
+
+  // ボタンの下に出す。下に入りきらなければ上に出す。吹き出しの矢印はボタンを指す
+  var r = btn.getBoundingClientRect(), bw = $bubble.offsetWidth, bh = $bubble.offsetHeight;
+  var x = Math.max(12, Math.min(window.innerWidth - bw - 12, r.left + r.width / 2 - bw / 2));
+  var below = r.bottom + 10 + bh <= window.innerHeight - 8;
+  $bubble.style.left = x + "px";
+  $bubble.style.top = (below ? r.bottom + 10 : Math.max(8, r.top - 10 - bh)) + "px";
+  $bubble.classList.toggle("above", !below);
+  $bubble.querySelector(".mb-arrow").style.left = (r.left + r.width / 2 - x - 8) + "px";
+}
+
+function closeMapBubble() { $bubble.hidden = true; $bubble.innerHTML = ""; }
+
+$bubble.addEventListener("click", function (e) {
+  if (e.target.closest(".mb-close")) closeMapBubble();
+});
+document.addEventListener("keydown", function (e) { if (e.key === "Escape") closeMapBubble(); });
 
 function setMode(mode) {
   STATE.mode = MODES[mode] ? mode : "to";
@@ -451,6 +500,7 @@ function setMode(mode) {
   var $m = document.getElementById("mode");
   $m.textContent = MODES[STATE.mode].label;
   $m.classList.toggle("is-from", STATE.mode === "from");
+  closeMapBubble();
   // 「荻窪駅から」には八丁が出ないので、除外ボタンの帯ごと隠す
   document.getElementById("filterbar").hidden = STATE.mode === "from" || !BUSBOARD_CONFIG.excludable;
   render();
@@ -716,7 +766,11 @@ window.addEventListener("pageshow", onWake);
 window.addEventListener("online", refresh);
 
 // 一覧をタップしても再取得（「更新」ボタンが自身で処理するので、ボタン上は除く）
-$list.addEventListener("click", refresh);
+$list.addEventListener("click", function (e) {
+  var btn = e.target.closest && e.target.closest(".map");
+  if (btn) { openMapBubble(btn); return; }   // 地図アイコンは吹き出しを開くだけ
+  refresh();
+});
 
 $btn.addEventListener("click", function () {
   STATE.lastTryMs = 0;   // 明示的な更新は最短間隔を無視する
