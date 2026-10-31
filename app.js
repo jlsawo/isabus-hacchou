@@ -139,9 +139,12 @@ function midnight(d) {
 }
 
 // 「本日」と「前日」の運行日を対象にする（24時以降の便を拾うため）
-function scheduledDepartures(data, now) {
+// trips / stops を省略すると「荻窪駅行き」、data.retTrips / data.retStops を渡すと「荻窪駅から」
+function scheduledDepartures(data, now, trips, stops) {
   var out = [];
-  if (!data || !data.trips) return out;
+  trips = trips || (data && data.trips);
+  stops = stops || (data && data.stops);
+  if (!data || !trips) return out;
 
   for (var back = 1; back >= 0; back--) {
     var d = new Date(now.getTime() - back * 86400000);
@@ -153,18 +156,19 @@ function scheduledDepartures(data, now) {
     var activeSet = {};
     for (var i = 0; i < active.length; i++) activeSet[active[i]] = 1;
 
-    for (var t = 0; t < data.trips.length; t++) {
-      var tr = data.trips[t];
-      // [0]tripId [1]opIdx [2]stopIdx [3]stopSeq [4]routeIdx [5]signIdx [6]depSec [7]svcIdx
+    for (var t = 0; t < trips.length; t++) {
+      var tr = trips[t];
+      // [0]tripId [1]opIdx [2]stopIdx [3]stopSeq [4]routeIdx [5]signIdx [6]depSec [7]svcIdx [8]降車のりば着（荻窪駅からのみ）
       if (!activeSet[tr[7]]) continue;
       out.push({
         tripId:  tr[0],
         op:      data.ops[tr[1]],
-        stop:    data.stops[tr[2]],
+        stop:    stops[tr[2]],
         seq:     tr[3],
         route:   data.routes[tr[4]],
         sign:    data.signs[tr[5]],
-        schedMs: base + tr[6] * 1000
+        schedMs: base + tr[6] * 1000,
+        arrMs:   tr[8] != null ? base + tr[8] * 1000 : null
       });
     }
   }
@@ -212,7 +216,9 @@ function applyRealtime(sched, rt) {
     rows.push({
       tripId: s.tripId, op: s.op, stop: s.stop,
       route: s.route, sign: s.sign,
-      schedMs: s.schedMs, ms: ms, live: live
+      schedMs: s.schedMs, ms: ms, live: live,
+      // 降りるのりばに着く時刻は、乗るのりばでの遅れをそのまま足した見込み
+      arrMs: s.arrMs != null ? s.arrMs + (ms - s.schedMs) : null
     });
   }
   return rows;
@@ -267,10 +273,17 @@ function fetchArrayBuffer(url) {
 /* ===========================================================================
    6. 端末内の保存
    =========================================================================== */
-var APP_VERSION = "3";   // 更新が反映されたかを設定画面で確かめるための番号（index.html の ?v= と揃える）
+var APP_VERSION = "5";   // 更新が反映されたかを設定画面で確かめるための番号（index.html の ?v= と揃える）
 var KEY_TOKEN = "busboard.token";
 // トークンは同じサイト（jlsawo.github.io）のいさバスと共有し、時刻表はアプリごとに分ける
 var KEY_DATA  = BUSBOARD_CONFIG.storageKey || "busboard.timetable";
+var KEY_MODE  = (BUSBOARD_CONFIG.storageKey || "busboard") + ".mode";
+
+/* 表示の切り替え: "to" = 荻窪駅行き、"from" = 荻窪駅から（法務局・清水二丁目へ） */
+var MODES = {
+  to:   { label: "荻窪駅行き" },
+  from: { label: (BUSBOARD_CONFIG.returnMode && BUSBOARD_CONFIG.returnMode.label) || "荻窪駅から" }
+};
 
 // プライベートモードなどで localStorage が使えなくても、表示は続ける
 function load(key) {
@@ -331,12 +344,17 @@ function render() {
   var stale = STATE.lastOkMs > 0 && (nowMs - STATE.lastOkMs) > CFG.staleSec * 1000;
   document.body.classList.toggle("stale", stale);
 
+  var fromMode = STATE.mode === "from";
   var rows = [];
   if (STATE.data) {
-    rows = pickTop(applyRealtime(scheduledDepartures(STATE.data, now), STATE.rt), nowMs);
+    var sched = fromMode
+      ? scheduledDepartures(STATE.data, now, STATE.data.retTrips || [], STATE.data.retStops || [])
+      : scheduledDepartures(STATE.data, now);
+    rows = pickTop(applyRealtime(sched, STATE.rt), nowMs);
   }
 
-  var emptyMsg = STATE.data ? "この先" + CFG.horizonMin + "分に便がありません"
+  var emptyMsg = (fromMode && STATE.data && !STATE.data.retTrips) ? "時刻表を更新すると表示されます"
+               : STATE.data ? "この先" + CFG.horizonMin + "分に便がありません"
                : STATE.building ? "時刻表を準備しています…"
                : !STATE.token ? "⚙ からアクセストークンを設定してください"
                : "時刻表データがありません";
@@ -357,7 +375,7 @@ function render() {
 
     html +=
       '<li class="row stop-' + r.stop.key + (soon ? " is-soon" : "") + '">' +
-        '<div class="mins"' + (soon ? "" : stopColorAttr(r.stop.key)) + ">" + minsHtml + "</div>" +
+        '<div class="mins"' + (soon ? "" : stopColorAttr(r.stop.colorKey || r.stop.key)) + ">" + minsHtml + "</div>" +
         '<div class="info">' +
           '<div class="line1">' +
             '<span class="route">' + esc(r.route) + "</span>" +
@@ -366,6 +384,7 @@ function render() {
           '<div class="line2">' +
             '<span class="stop">' + esc(r.stop.name) + " " + esc(r.stop.direction) + "</span>" +
             '<span class="op op-' + r.op.key + '">' + esc(r.op.label) + "</span>" +
+            (r.arrMs ? '<span class="arr">' + hhmm(new Date(r.arrMs)) + "着</span>" : "") +
             (r.live ? "" : '<span class="tag">予定</span>') +
           "</div>" +
         "</div>" +
@@ -392,13 +411,23 @@ function render() {
   $meta1.innerHTML = msg || "&nbsp;";
 }
 
-// 分数の色は config.js の stops[].color（無ければ既定の青）
+// 分数の色は config.js の stops[].color / returnMode.stops[].color（無ければ既定の青）
 function stopColorAttr(key) {
-  for (var i = 0; i < BUSBOARD_CONFIG.stops.length; i++) {
-    var s = BUSBOARD_CONFIG.stops[i];
+  var all = BUSBOARD_CONFIG.stops.concat((BUSBOARD_CONFIG.returnMode || {}).stops || []);
+  for (var i = 0; i < all.length; i++) {
+    var s = all[i];
     if (s.key === key && s.color) return ' style="color:' + esc(s.color) + '"';
   }
   return "";
+}
+
+function setMode(mode) {
+  STATE.mode = MODES[mode] ? mode : "to";
+  save(KEY_MODE, STATE.mode);
+  var $m = document.getElementById("mode");
+  $m.textContent = MODES[STATE.mode].label;
+  $m.classList.toggle("is-from", STATE.mode === "from");
+  render();
 }
 
 function esc(s) {
@@ -480,6 +509,16 @@ function diagnose() {
   var todaySvcs = (d.dates && d.dates[todayKey]) || [];
   var lines = ["【診断】" + hhmm(now) + " 時点・この先" + CFG.horizonMin + "分"];
 
+  if (d.retStops) {
+    var rs = applyRealtime(scheduledDepartures(d, now, d.retTrips, d.retStops), STATE.rt)
+      .filter(function (r) { return r.ms >= lo && r.ms <= hi; });
+    var byDest = {};
+    rs.forEach(function (r) { byDest[r.stop.direction] = (byDest[r.stop.direction] || 0) + 1; });
+    lines.push("荻窪駅から: 収録 " + d.retTrips.length + " / 表示候補 " + rs.length +
+               (Object.keys(byDest).length ? "（" + Object.keys(byDest).map(function (k) { return k + " " + byDest[k]; }).join("、") + "）" : "") +
+               " / 乗り場 " + d.retStops.map(function (s) { return s.name; }).filter(function (v, i, a) { return a.indexOf(v) === i; }).join("・"));
+  }
+
   d.stops.forEach(function (st, i) {
     var all = d.trips.filter(function (t) { return t[2] === i; });
     var s1 = sched.filter(function (s) { return s.stop === st && s.schedMs >= lo && s.schedMs <= hi; });
@@ -530,7 +569,8 @@ function updatePanelInfo() {
 function stopsChanged(d) {
   var want = BUSBOARD_CONFIG.stops.map(function (s) { return s.key + "=" + (s.stopId || ""); }).join(",");
   var have = (d.stops || []).map(function (s) { return s.key + "=" + (s.stopId || ""); }).join(",");
-  return want !== have;
+  var wantRet = ((BUSBOARD_CONFIG.returnMode || {}).stops || []).map(function (s) { return s.key + "=" + (s.stopId || ""); }).join(",");
+  return want !== have || wantRet !== (d.retCfg || "");
 }
 
 function timetableIsOld(d) {
@@ -724,6 +764,12 @@ function mockData() {
     STATE.data = loadTimetable();
     if (!STATE.token) openPanel();
   }
+
+  STATE.mode = load(KEY_MODE) === "from" ? "from" : "to";
+  setMode(STATE.mode);
+  document.getElementById("mode").addEventListener("click", function () {
+    setMode(STATE.mode === "from" ? "to" : "from");
+  });
 
   // 保存した時刻表がブラウザの容量整理で消されにくくする
   if (navigator.storage && navigator.storage.persist) navigator.storage.persist().catch(function () {});

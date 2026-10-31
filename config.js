@@ -54,5 +54,19 @@ var BUSBOARD_CONFIG = {
     // 30012-03 の便は法務局杉並出張所 30015-01 と同じバスなので、法務局の行として表示される）
     { key: "hacchou_seibu",  operator: "seibu", name: "八丁",             direction: "荻窪駅方面",         stopId: "30012-01", color: "#9fdcab" },  // 薄めの緑
     { key: "hacchou_kanto",  operator: "kanto", name: "八丁",             direction: "荻窪駅方面",         stopId: "3105_2",   color: "#9fdcab" }
-  ]
+  ],
+
+  // 「荻窪駅から」表示（画面上のボタンで切り替え）。
+  // 荻窪駅ののりば（停留所名が fromNamePrefix で始まるもの）から乗り、下の stopId ののりばで降りる便を、
+  // 荻窪駅を出る時刻の順に表示する。降りるのりばは荻窪駅から離れる方向のもの
+  // （荻窪駅行きで使っている 30015-01 / 20124-01 / 3303_2 の向かい側）。
+  returnMode: {
+    label: "荻窪駅から",
+    fromNamePrefix: "荻窪駅",
+    stops: [
+      { key: "ret_houmukyoku",     operator: "seibu", name: "法務局杉並出張所", stopId: "30015-02", color: "#f7b8cb" },  // 桜色
+      { key: "ret_shimizu2_seibu", operator: "seibu", name: "清水二丁目",       stopId: "20124-02" },
+      { key: "ret_shimizu2_kanto", operator: "kanto", name: "清水二丁目",       stopId: "3303_1" }
+    ]
+  }
 };

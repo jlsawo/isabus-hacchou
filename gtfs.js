@@ -228,6 +228,10 @@ var GTFS = (function () {
     var routeMap = {}, routes = [], signMap = {}, signs = [];
     var trips = [], dates = {}, meta = {};
 
+    // 「荻窪駅から」モード: 荻窪駅ののりばから乗って、returnMode.stops ののりばで降りる便
+    var ret = cfg.returnMode || { stops: [] };
+    var retTrips = [], retStops = [], retStopMap = {};
+
     function pool(map, list, v) {
       v = v || "";
       if (!(v in map)) { map[v] = list.length; list.push(v); }
@@ -240,6 +244,9 @@ var GTFS = (function () {
       if (!s.stopId) { log(s.name + "（" + cfg.operators[s.operator].label + "）は stop_id が未設定のため飛ばします"); return; }
       if (opKeys.indexOf(s.operator) < 0) opKeys.push(s.operator);
     });
+    ret.stops.forEach(function (s) {
+      if (s.stopId && opKeys.indexOf(s.operator) < 0) opKeys.push(s.operator);
+    });
 
     var chain = Promise.resolve();
     opKeys.forEach(function (opKey) {
@@ -250,6 +257,10 @@ var GTFS = (function () {
 
         var targets = {};   // stop_id -> stops[] の添字
         cfg.stops.forEach(function (s, i) { if (s.operator === opKey && s.stopId) targets[s.stopId] = i; });
+        var retTargets = {};   // 降りるのりばの stop_id -> returnMode.stops[] の添字
+        ret.stops.forEach(function (s, i) { if (s.operator === opKey && s.stopId) retTargets[s.stopId] = i; });
+        var fromPoles = {};    // 乗るのりば（荻窪駅の各のりば）の stop_id -> 表示名
+        var retHits = [], fromRows = {};
 
         var buf, entries;
         var hits = [], tripIds = {}, routeName = {}, tripInfo = {}, used = {};
@@ -266,9 +277,14 @@ var GTFS = (function () {
           var found = {};
           return forEachRow(buf, entries, "stops.txt", function (v, ix) {
             var id = col(v, ix, "stop_id");
-            if (id in targets) found[id] = 1;
+            if (id in targets || id in retTargets) found[id] = 1;
+            var name = col(v, ix, "stop_name");
+            if (ret.fromNamePrefix && name.indexOf(ret.fromNamePrefix) === 0) {
+              var pc = col(v, ix, "platform_code");
+              fromPoles[id] = name + (pc ? " " + pc + (/^\d+$/.test(pc) ? "番" : "") : "");
+            }
           }, true).then(function () {
-            Object.keys(targets).forEach(function (id) {
+            Object.keys(targets).concat(Object.keys(retTargets)).forEach(function (id) {
               if (!found[id]) throw new Error(op.label + "バスの時刻表に stop_id " + id + " がありません");
             });
           });
@@ -276,18 +292,38 @@ var GTFS = (function () {
           log("  発車時刻を抽出中…");
           return forEachRow(buf, entries, "stop_times.txt", function (v, ix) {
             var sid = v[ix.stop_id];
-            if (!(sid in targets)) return;
+            var isT = sid in targets, isR = sid in retTargets, isF = sid in fromPoles;
+            if (!isT && !isR && !isF) return;
+            var tid = v[ix.trip_id], seq = parseInt(v[ix.stop_sequence], 10);
+            if (isR) {
+              // 降りる側は到着時刻を使う
+              var arr = toSeconds(col(v, ix, "arrival_time") || col(v, ix, "departure_time"));
+              if (arr != null) retHits.push({ tripId: tid, retIdx: retTargets[sid], seq: seq, arr: arr });
+            }
             var sec = toSeconds(col(v, ix, "departure_time") || col(v, ix, "arrival_time"));
             if (sec == null) return;
-            var tid = v[ix.trip_id];
+            if (isF) (fromRows[tid] = fromRows[tid] || []).push({ sid: sid, seq: seq, dep: sec });
+            if (!isT) return;
             tripIds[tid] = 1;
-            hits.push({ tripId: tid, stopIdx: targets[sid], seq: parseInt(v[ix.stop_sequence], 10), dep: sec });
+            hits.push({ tripId: tid, stopIdx: targets[sid], seq: seq, dep: sec });
           }, true);
         }).then(function () {
           return forEachRow(buf, entries, "routes.txt", function (v, ix) {
             routeName[col(v, ix, "route_id")] = col(v, ix, "route_short_name") || col(v, ix, "route_long_name");
           }, true);
         }).then(function () {
+          // 「荻窪駅から」: 降りるのりばより前に荻窪駅ののりばを通る便だけを残す
+          retHits = retHits.filter(function (h) {
+            var best = null;
+            (fromRows[h.tripId] || []).forEach(function (f) {
+              if (f.seq < h.seq && (!best || f.seq > best.seq)) best = f;
+            });
+            if (!best) return false;
+            h.from = best;
+            tripIds[h.tripId] = 1;
+            return true;
+          });
+          fromRows = null;
           return forEachRow(buf, entries, "trips.txt", function (v, ix) {
             var tid = col(v, ix, "trip_id");
             if (!tripIds[tid]) return;
@@ -321,8 +357,26 @@ var GTFS = (function () {
                         h.dep, svcKey]);
             kept++;
           });
-          if (!kept) throw new Error(op.label + "バスで対象のりばの便が見つかりませんでした");
-          log("  " + kept + " 便を取り込みました");
+          var retKept = 0;
+          retHits.forEach(function (h) {
+            var info = tripInfo[h.tripId];
+            if (!info) return;
+            var rs = ret.stops[h.retIdx];
+            var key = rs.key + "@" + h.from.sid;
+            if (!(key in retStopMap)) {
+              retStopMap[key] = retStops.length;
+              retStops.push({ key: key, colorKey: rs.key, name: fromPoles[h.from.sid] || ret.fromNamePrefix,
+                              direction: "→ " + rs.name, stopId: h.from.sid });
+            }
+            used[info.service] = 1;
+            // 荻窪駅を出る時刻で並べる。[8] は降りるのりばに着く時刻
+            retTrips.push([h.tripId, opIndex[opKey], retStopMap[key], h.from.seq,
+                           pool(routeMap, routes, info.route), pool(signMap, signs, info.sign || info.route),
+                           h.from.dep, opKey + "|" + info.service, h.arr]);
+            retKept++;
+          });
+          if (!kept && !retKept) throw new Error(op.label + "バスで対象のりばの便が見つかりませんでした");
+          log("  " + kept + " 便を取り込みました" + (retKept ? "（荻窪駅から " + retKept + " 便）" : ""));
 
           // 運行日カレンダーを展開（前日から calendarDays 日分）
           var dow = ["sunday", "monday", "tuesday", "wednesday", "thursday", "friday", "saturday"];
@@ -394,6 +448,8 @@ var GTFS = (function () {
         builtAtMs:  now.getTime(),
         validUntil: keys.length ? keys[keys.length - 1] : null,
         ops: ops, stops: stops, routes: routes, signs: signs, dates: dates, trips: trips,
+        retTrips: retTrips, retStops: retStops,
+        retCfg: ret.stops.map(function (s) { return s.key + "=" + (s.stopId || ""); }).join(","),
         meta: meta
       };
     });
