@@ -273,7 +273,7 @@ function fetchArrayBuffer(url) {
 /* ===========================================================================
    6. 端末内の保存
    =========================================================================== */
-var APP_VERSION = "17";   // 更新が反映されたかを設定画面で確かめるための番号（index.html の ?v= と揃える）
+var APP_VERSION = "18";   // 更新が反映されたかを設定画面で確かめるための番号（index.html の ?v= と揃える）
 var KEY_TOKEN = "busboard.token";
 // トークンは同じサイト（jlsawo.github.io）のいさバスと共有し、時刻表はアプリごとに分ける
 var KEY_DATA  = BUSBOARD_CONFIG.storageKey || "busboard.timetable";
@@ -559,7 +559,6 @@ function drawSchematic(v, osm, curId) {
 
   var out = '<svg class="mb-svg" viewBox="0 0 ' + v.w + " " + v.h + '" width="' + v.w + '" height="' + v.h + '">' +
             '<rect width="100%" height="100%" fill="#eceef1"/>';
-  of("station").forEach(function (w) { out += '<path d="' + path(w.g) + 'Z" fill="#d5dae0"/>'; });
   of("bus").forEach(function (w) { out += '<path d="' + path(w.g) + 'Z" fill="#dfe4ea"/>'; });
 
   var widths = { minor: 4.5, mid: 7, major: 10 };
@@ -601,8 +600,15 @@ function drawSchematic(v, osm, curId) {
     // 道が端ぎりぎりにあるときは、文字が切れないよう少し内側に寄せる
     out += label(best.x, Math.max(10, Math.min(v.h - 10, best.y)), "青梅街道", ang);
   }
+  // 駅は四角で描く（線路に沿って東西に長い）。大きさは config.js の landmark.size（メートル）
   var lm = BUSBOARD_CONFIG.returnMode && BUSBOARD_CONFIG.returnMode.landmark;
-  if (lm) { var lp = xy(lm.lat, lm.lon); out += label(lp[0], lp[1], lm.name, 0); }
+  if (lm) {
+    var lp = xy(lm.lat, lm.lon);
+    var pxPerM = Math.pow(2, v.z) * 256 / (40075016.686 * Math.cos(lm.lat * Math.PI / 180));
+    var sw = (lm.size ? lm.size[0] : 90) * pxPerM, sh = (lm.size ? lm.size[1] : 28) * pxPerM;
+    out += '<rect x="' + (lp[0] - sw / 2).toFixed(1) + '" y="' + (lp[1] - sh / 2).toFixed(1) + '" width="' + sw.toFixed(1) + '" height="' + sh.toFixed(1) +
+           '" rx="2" fill="#cfd5dc" stroke="#9aa3ad" stroke-width="1.5"/>' + label(lp[0], lp[1], lm.name, 0);
+  }
 
   // 荻窪駅のすべてののりばを点で（押した便の乗り場は、この上に赤い印を重ねる）
   ((STATE.data && STATE.data.poles) || []).forEach(function (p) {
@@ -611,6 +617,14 @@ function drawSchematic(v, osm, curId) {
     if (q[0] < 0 || q[0] > v.w || q[1] < 0 || q[1] > v.h) return;
     out += '<circle cx="' + q[0].toFixed(1) + '" cy="' + q[1].toFixed(1) + '" r="4" fill="#8a949f" stroke="#fff" stroke-width="1.5"/>';
   });
+
+  // コンパス（地図はいつも北が上）
+  var cx = v.w - 22, cy = 34;   // 上の「N」が切れない位置
+  out += '<g class="mb-compass">' +
+         '<circle cx="' + cx + '" cy="' + cy + '" r="14" fill="#fff" stroke="#bcc4cd" stroke-width="1"/>' +
+         '<path d="M' + cx + " " + (cy - 10) + "L" + (cx + 5) + " " + (cy + 3) + "L" + cx + " " + (cy + 1) + "L" + (cx - 5) + " " + (cy + 3) + 'Z" fill="#e8332a"/>' +
+         '<path d="M' + cx + " " + (cy + 10) + "L" + (cx + 5) + " " + (cy + 3) + "L" + cx + " " + (cy + 1) + "L" + (cx - 5) + " " + (cy + 3) + 'Z" fill="#9aa3ad"/>' +
+         '<text x="' + cx + '" y="' + (cy - 17) + '" text-anchor="middle" class="mb-north">N</text></g>';
 
   if (!osm) {
     out += '<text x="8" y="' + (v.h - 8) + '" class="mb-status">' +
