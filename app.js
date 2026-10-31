@@ -273,7 +273,7 @@ function fetchArrayBuffer(url) {
 /* ===========================================================================
    6. 端末内の保存
    =========================================================================== */
-var APP_VERSION = "16";   // 更新が反映されたかを設定画面で確かめるための番号（index.html の ?v= と揃える）
+var APP_VERSION = "17";   // 更新が反映されたかを設定画面で確かめるための番号（index.html の ?v= と揃える）
 var KEY_TOKEN = "busboard.token";
 // トークンは同じサイト（jlsawo.github.io）のいさバスと共有し、時刻表はアプリごとに分ける
 var KEY_DATA  = BUSBOARD_CONFIG.storageKey || "busboard.timetable";
@@ -445,21 +445,13 @@ function mapLink(stop) {
 }
 
 /* ---------- 乗り場の地図の吹き出し ----------
-   「図」: 道路（ロータリー・青梅街道）と線路だけのシンプルな絵に、荻窪駅のすべてののりばを点で描き、
-          押した便の乗り場だけを赤く目立たせる。道路と線路の形は OpenStreetMap から一度だけ取ってきて保存する。
-   「写真」: 国土地理院の航空写真。
+   道路（ロータリー・青梅街道）と線路だけのシンプルな絵に、荻窪駅のすべてののりばを点で描き、
+   押した便の乗り場だけを赤く目立たせる。道路と線路の形は OpenStreetMap から一度だけ取ってきて保存する。
    範囲はどの乗り場でも同じ（使う乗り場と荻窪駅がすべて入る範囲）で、印の位置だけが変わる。× で閉じる。 */
 var MAP_MAX_ZOOM = 18;   // 1画素がおよそ0.5m。乗り場が近くに集まっていれば、ロータリーが大きく見えるこの縮尺
 
-var MAP_LAYERS = {
-  draw:  { label: "図",
-           credit: '道路: © <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener">OpenStreetMap</a> contributors' },
-  photo: { label: "写真", url: "https://cyberjapandata.gsi.go.jp/xyz/seamlessphoto/{z}/{x}/{y}.jpg",
-           credit: '出典: <a href="https://maps.gsi.go.jp/development/ichiran.html" target="_blank" rel="noopener">地理院タイル（全国最新写真）</a>' }
-};
-var KEY_MAPLAYER = (BUSBOARD_CONFIG.storageKey || "busboard") + ".maplayer";
+var MAP_CREDIT = '道路: © <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener">OpenStreetMap</a> contributors';
 var KEY_OSM      = (BUSBOARD_CONFIG.storageKey || "busboard") + ".osm";
-function mapLayer() { return MAP_LAYERS[load(KEY_MAPLAYER)] ? load(KEY_MAPLAYER) : "draw"; }
 var $bubble = document.getElementById("mapbubble");
 var BUBBLE = null;   // 開いている吹き出しの情報（絵の描き直しに使う）
 
@@ -553,7 +545,7 @@ function fetchOsm(bbox) {
     if (BUBBLE) BUBBLE.osmFailed = true;
   }).then(function () {
     osmLoading = false;
-    if (BUBBLE && BUBBLE.layer === "draw") renderMapInner();   // 届いたら描き直す
+    if (BUBBLE) renderMapInner();   // 届いたら描き直す
   });
 }
 
@@ -627,29 +619,15 @@ function drawSchematic(v, osm, curId) {
   return out + "</svg>";
 }
 
-// 吹き出しの中の絵（または写真）と赤い印を描く
+// 吹き出しの中の絵と赤い印を描く
 function renderMapInner() {
   if (!BUBBLE) return;
-  var b = BUBBLE, v = b.v, layer = b.layer, inner = "";
-  if (layer === "photo") {
-    for (var ty = Math.floor(v.top / 256); ty <= Math.floor((v.top + v.h) / 256); ty++) {
-      for (var tx = Math.floor(v.left / 256); tx <= Math.floor((v.left + v.w) / 256); tx++) {
-        inner += '<img alt="" src="' + MAP_LAYERS.photo.url.replace("{z}", v.z).replace("{x}", tx).replace("{y}", ty) +
-                 '" style="left:' + Math.round(tx * 256 - v.left) + "px;top:" + Math.round(ty * 256 - v.top) + 'px">';
-      }
-    }
-  } else {
-    var bbox = viewBbox(v), osm = loadOsm(bbox);
-    if (!osm && !b.osmFailed) fetchOsm(bbox);
-    inner = drawSchematic(v, osm, b.stopId);
-  }
+  var b = BUBBLE, v = b.v;
+  var bbox = viewBbox(v), osm = loadOsm(bbox);
+  if (!osm && !b.osmFailed) fetchOsm(bbox);
   var pin = worldPx(b.lat, b.lon, v.z);
-  inner += '<span class="mb-pin" aria-hidden="true" style="left:' + Math.round(pin.x - v.left) + "px;top:" + Math.round(pin.y - v.top) + 'px"></span>';
-  var $m = $bubble.querySelector(".mb-map");
-  $m.className = "mb-map " + layer;
-  $m.innerHTML = inner;
-  $bubble.querySelector(".mb-credit").innerHTML = MAP_LAYERS[layer].credit;
-  $bubble.querySelectorAll(".mb-layer").forEach(function (t) { t.classList.toggle("on", t.getAttribute("data-layer") === layer); });
+  $bubble.querySelector(".mb-map").innerHTML = drawSchematic(v, osm, b.stopId) +
+    '<span class="mb-pin" aria-hidden="true" style="left:' + Math.round(pin.x - v.left) + "px;top:" + Math.round(pin.y - v.top) + 'px"></span>';
 }
 
 function openMapBubble(btn) {
@@ -657,17 +635,13 @@ function openMapBubble(btn) {
   if (isNaN(lat) || isNaN(lon)) return;
 
   var w = Math.min(320, window.innerWidth - 24), h = Math.round(w * 0.68);
-  BUBBLE = { v: mapView(w, h), lat: lat, lon: lon, stopId: btn.getAttribute("data-stop"), layer: mapLayer() };
-  var tabs = Object.keys(MAP_LAYERS).map(function (k) {
-    return '<button type="button" class="mb-layer" data-layer="' + k + '">' + MAP_LAYERS[k].label + "</button>";
-  }).join("");
+  BUBBLE = { v: mapView(w, h), lat: lat, lon: lon, stopId: btn.getAttribute("data-stop") };
 
   $bubble.innerHTML =
     '<div class="mb-head"><span class="mb-title">' + esc(btn.getAttribute("data-name")) + "</span>" +
-      '<span class="mb-layers">' + tabs + "</span>" +
       '<button type="button" class="mb-close" aria-label="閉じる">×</button></div>' +
     '<div class="mb-map" style="width:' + w + "px;height:" + h + 'px"></div>' +
-    '<div class="mb-credit"></div>' +
+    '<div class="mb-credit">' + MAP_CREDIT + "</div>" +
     '<span class="mb-arrow"></span>';
   renderMapInner();
   $bubble.hidden = false;
@@ -686,12 +660,6 @@ function closeMapBubble() { BUBBLE = null; $bubble.hidden = true; $bubble.innerH
 
 $bubble.addEventListener("click", function (e) {
   if (e.target.closest(".mb-close")) closeMapBubble();
-  var tab = e.target.closest(".mb-layer");
-  if (tab && BUBBLE) {   // 図と写真の切り替え（選んだほうを覚える）
-    BUBBLE.layer = tab.getAttribute("data-layer");
-    save(KEY_MAPLAYER, BUBBLE.layer);
-    renderMapInner();
-  }
 });
 document.addEventListener("keydown", function (e) { if (e.key === "Escape") closeMapBubble(); });
 
