@@ -138,9 +138,11 @@ body.stale .row .mins { color: var(--stale) !important; }
 /* 乗り場の地図ボタン（荻窪駅から） */
 .map {
   flex: 0 0 auto; font: inherit; line-height: 1;
-  font-size: clamp(14px, 2.6vmin, 24px);
-  background: none; border: 0; padding: .1em .15em;
+  font-size: clamp(12px, 2.2vmin, 20px);
+  background: none; border: 0; padding: .2em .25em;
+  filter: grayscale(1); opacity: .5;   /* 控えめに。色を落として薄く */
 }
+.map:active { opacity: .9; }
 
 /* 乗り場の地図の吹き出し */
 #mapbubble {
@@ -158,7 +160,7 @@ body.stale .row .mins { color: var(--stale) !important; }
 .mb-map { position: relative; overflow: hidden; border-radius: 8px; background: #e8e4d8; }
 .mb-map img { position: absolute; width: 256px; height: 256px; max-width: none; }
 .mb-pin {
-  position: absolute; left: 50%; top: 50%; width: 18px; height: 18px; margin: -9px 0 0 -9px;
+  position: absolute; width: 18px; height: 18px; margin: -9px 0 0 -9px;   /* 位置は app.js が指定 */
   border-radius: 50%; background: #e8332a; border: 3px solid #fff; box-shadow: 0 0 0 2px #e8332a, 0 2px 6px rgba(0, 0, 0, .4);
 }
 .mb-credit { font-size: 10px; color: #5b6573; text-align: right; padding-top: 3px; }
@@ -221,7 +223,7 @@ footer { padding-bottom: calc(1.2vmin + env(safe-area-inset-bottom, 0px)); }
   .op    { font-size: clamp(11px, 3.2vw, 21px); }
   .tag   { font-size: clamp(10px, 3vw, 19px); }
   .arr   { font-size: clamp(11px, 3.4vw, 22px); }
-  .map   { font-size: clamp(16px, 5vw, 26px); padding: .15em .3em; }   /* 1文字分でも指で押しやすく */
+  .map   { font-size: clamp(13px, 3.8vw, 22px); padding: .35em .4em; }   /* 小さくても押せるよう、押せる範囲は広めに */
   #title { font-size: clamp(13px, 3.8vw, 22px); }
   #clock { font-size: clamp(18px, 6vw, 34px); }
   #mode  { font-size: clamp(14px, 4.2vw, 26px); }

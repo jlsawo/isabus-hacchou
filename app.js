@@ -273,7 +273,7 @@ function fetchArrayBuffer(url) {
 /* ===========================================================================
    6. 端末内の保存
    =========================================================================== */
-var APP_VERSION = "11";   // 更新が反映されたかを設定画面で確かめるための番号（index.html の ?v= と揃える）
+var APP_VERSION = "12";   // 更新が反映されたかを設定画面で確かめるための番号（index.html の ?v= と揃える）
 var KEY_TOKEN = "busboard.token";
 // トークンは同じサイト（jlsawo.github.io）のいさバスと共有し、時刻表はアプリごとに分ける
 var KEY_DATA  = BUSBOARD_CONFIG.storageKey || "busboard.timetable";
@@ -446,24 +446,46 @@ function mapLink(stop) {
 
 /* ---------- 乗り場の地図の吹き出し ----------
    国土地理院の地図（地理院タイル）を数枚並べて、乗り場の位置に印を付ける。
+   地図の範囲はどの乗り場でも同じ（すべての乗り場が入る荻窪駅前）にして、印の位置だけを変える。
    外部の地図アプリは開かず、× で閉じる。 */
-var MAP_ZOOM = 17;   // 1画素がおよそ1m。駅前の様子がわかる縮尺
+var MAP_MAX_ZOOM = 17;   // 1画素がおよそ1m。乗り場が近くに集まっていればこの縮尺
 var $bubble = document.getElementById("mapbubble");
+
+// 緯度経度 → ズーム z の世界全体での画素位置
+function worldPx(lat, lon, z) {
+  var n = Math.pow(2, z) * 256, rad = lat * Math.PI / 180;
+  return { x: (lon + 180) / 360 * n, y: (1 - Math.log(Math.tan(rad) + 1 / Math.cos(rad)) / Math.PI) / 2 * n };
+}
+
+// すべての乗り場が余白つきで入る、いちばん大きい縮尺と中心
+function mapView(w, h) {
+  var pts = ((STATE.data && STATE.data.retStops) || [])
+    .map(function (s) { return [parseFloat(s.lat), parseFloat(s.lon)]; })
+    .filter(function (p) { return !isNaN(p[0]) && !isNaN(p[1]); });
+  var lats = pts.map(function (p) { return p[0]; }), lons = pts.map(function (p) { return p[1]; });
+  var c = { lat: (Math.min.apply(null, lats) + Math.max.apply(null, lats)) / 2,
+            lon: (Math.min.apply(null, lons) + Math.max.apply(null, lons)) / 2 };
+  for (var z = MAP_MAX_ZOOM; z > 12; z--) {
+    var a = worldPx(Math.max.apply(null, lats), Math.min.apply(null, lons), z);
+    var b = worldPx(Math.min.apply(null, lats), Math.max.apply(null, lons), z);
+    if (b.x - a.x <= w - 48 && b.y - a.y <= h - 48) break;   // 印が端で切れないよう 24px の余白
+  }
+  var cp = worldPx(c.lat, c.lon, z);
+  return { z: z, left: cp.x - w / 2, top: cp.y - h / 2 };
+}
 
 function openMapBubble(btn) {
   var lat = parseFloat(btn.getAttribute("data-lat")), lon = parseFloat(btn.getAttribute("data-lon"));
   if (isNaN(lat) || isNaN(lon)) return;
 
   var w = Math.min(320, window.innerWidth - 24), h = Math.round(w * 0.68);
-  var n = Math.pow(2, MAP_ZOOM), rad = lat * Math.PI / 180;
-  var px = (lon + 180) / 360 * n * 256;                                                   // 世界全体での画素位置
-  var py = (1 - Math.log(Math.tan(rad) + 1 / Math.cos(rad)) / Math.PI) / 2 * n * 256;
-  var left = px - w / 2, top = py - h / 2;
+  var v = mapView(w, h), left = v.left, top = v.top;
+  var pin = worldPx(lat, lon, v.z);
 
   var tiles = "";
   for (var ty = Math.floor(top / 256); ty <= Math.floor((top + h) / 256); ty++) {
     for (var tx = Math.floor(left / 256); tx <= Math.floor((left + w) / 256); tx++) {
-      tiles += '<img alt="" src="https://cyberjapandata.gsi.go.jp/xyz/std/' + MAP_ZOOM + "/" + tx + "/" + ty +
+      tiles += '<img alt="" src="https://cyberjapandata.gsi.go.jp/xyz/std/' + v.z + "/" + tx + "/" + ty +
                '.png" style="left:' + Math.round(tx * 256 - left) + "px;top:" + Math.round(ty * 256 - top) + 'px">';
     }
   }
@@ -472,7 +494,7 @@ function openMapBubble(btn) {
     '<div class="mb-head"><span class="mb-title">' + esc(btn.getAttribute("data-name")) + "</span>" +
       '<button type="button" class="mb-close" aria-label="閉じる">×</button></div>' +
     '<div class="mb-map" style="width:' + w + "px;height:" + h + 'px">' + tiles +
-      '<span class="mb-pin" aria-hidden="true"></span></div>' +
+      '<span class="mb-pin" aria-hidden="true" style="left:' + Math.round(pin.x - left) + "px;top:" + Math.round(pin.y - top) + 'px"></span></div>' +
     '<div class="mb-credit">出典: <a href="https://maps.gsi.go.jp/development/ichiran.html" target="_blank" rel="noopener">地理院タイル</a></div>' +
     '<span class="mb-arrow"></span>';
   $bubble.hidden = false;
