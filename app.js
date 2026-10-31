@@ -273,11 +273,12 @@ function fetchArrayBuffer(url) {
 /* ===========================================================================
    6. 端末内の保存
    =========================================================================== */
-var APP_VERSION = "8";   // 更新が反映されたかを設定画面で確かめるための番号（index.html の ?v= と揃える）
+var APP_VERSION = "9";   // 更新が反映されたかを設定画面で確かめるための番号（index.html の ?v= と揃える）
 var KEY_TOKEN = "busboard.token";
 // トークンは同じサイト（jlsawo.github.io）のいさバスと共有し、時刻表はアプリごとに分ける
 var KEY_DATA  = BUSBOARD_CONFIG.storageKey || "busboard.timetable";
 var KEY_MODE  = (BUSBOARD_CONFIG.storageKey || "busboard") + ".mode";
+var KEY_EXCLUDE = (BUSBOARD_CONFIG.storageKey || "busboard") + ".exclude";
 
 /* 表示の切り替え: "to" = 荻窪駅行き、"from" = 荻窪駅から（法務局・清水二丁目へ） */
 var MODES = {
@@ -350,7 +351,12 @@ function render() {
     var sched = fromMode
       ? scheduledDepartures(STATE.data, now, STATE.data.retTrips || [], STATE.data.retStops || [])
       : scheduledDepartures(STATE.data, now);
-    rows = pickTop(applyRealtime(sched, STATE.rt), nowMs);
+    var applied = applyRealtime(sched, STATE.rt);
+    var ex = BUSBOARD_CONFIG.excludable;
+    if (!fromMode && STATE.exclude && ex) {
+      applied = applied.filter(function (r) { return ex.keys.indexOf(r.stop.key) < 0; });
+    }
+    rows = pickTop(applied, nowMs);
   }
 
   var emptyMsg = (fromMode && STATE.data && !STATE.data.retTrips) ? "時刻表を更新すると表示されます"
@@ -421,12 +427,24 @@ function stopColorAttr(key) {
   return "";
 }
 
+// 「八丁は除く」: 荻窪駅行きの表示から excludable.keys ののりばを外す
+function setExclude(on) {
+  STATE.exclude = !!on;
+  save(KEY_EXCLUDE, STATE.exclude ? "1" : "0");
+  var $e = document.getElementById("exclude");
+  $e.setAttribute("aria-pressed", STATE.exclude ? "true" : "false");
+  $e.classList.toggle("on", STATE.exclude);
+  render();
+}
+
 function setMode(mode) {
   STATE.mode = MODES[mode] ? mode : "to";
   save(KEY_MODE, STATE.mode);
   var $m = document.getElementById("mode");
   $m.textContent = MODES[STATE.mode].label;
   $m.classList.toggle("is-from", STATE.mode === "from");
+  // 「荻窪駅から」には八丁が出ないので、除外ボタンの帯ごと隠す
+  document.getElementById("filterbar").hidden = STATE.mode === "from" || !BUSBOARD_CONFIG.excludable;
   render();
 }
 
@@ -768,6 +786,10 @@ function mockData() {
   }
 
   STATE.mode = load(KEY_MODE) === "from" ? "from" : "to";
+  if (BUSBOARD_CONFIG.excludable) document.getElementById("exclude").textContent = BUSBOARD_CONFIG.excludable.label;
+  STATE.exclude = load(KEY_EXCLUDE) === "1";
+  setExclude(STATE.exclude);
+  document.getElementById("exclude").addEventListener("click", function () { setExclude(!STATE.exclude); });
   setMode(STATE.mode);
   document.getElementById("mode").addEventListener("click", function () {
     setMode(STATE.mode === "from" ? "to" : "from");

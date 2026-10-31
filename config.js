@@ -56,6 +56,9 @@ var BUSBOARD_CONFIG = {
     { key: "hacchou_kanto",  operator: "kanto", name: "八丁",             direction: "荻窪駅方面",         stopId: "3105_2",   color: "#9fdcab" }
   ],
 
+  // 「荻窪駅行き」で、ボタンひとつで隠せるのりば（画面上部の「八丁は除く」）
+  excludable: { label: "八丁は除く", keys: ["hacchou_seibu", "hacchou_kanto"] },
+
   // 「荻窪駅から」表示（画面上のボタンで切り替え）。
   // 荻窪駅ののりば（停留所名が fromNamePrefix で始まるもの）から乗り、下の stopId ののりばで降りる便を、
   // 荻窪駅を出る時刻の順に表示する。降りるのりばは荻窪駅から離れる方向のもの
