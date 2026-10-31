@@ -273,7 +273,7 @@ function fetchArrayBuffer(url) {
 /* ===========================================================================
    6. 端末内の保存
    =========================================================================== */
-var APP_VERSION = "14";   // 更新が反映されたかを設定画面で確かめるための番号（index.html の ?v= と揃える）
+var APP_VERSION = "15";   // 更新が反映されたかを設定画面で確かめるための番号（index.html の ?v= と揃える）
 var KEY_TOKEN = "busboard.token";
 // トークンは同じサイト（jlsawo.github.io）のいさバスと共有し、時刻表はアプリごとに分ける
 var KEY_DATA  = BUSBOARD_CONFIG.storageKey || "busboard.timetable";
@@ -440,41 +440,41 @@ function setExclude(on) {
 
 // 乗り場の場所を吹き出しの小さな地図で見せるボタン（1文字分のアイコン）
 function mapLink(stop) {
-  return '<button type="button" class="map" data-lat="' + esc(stop.lat) + '" data-lon="' + esc(stop.lon) +
+  return '<button type="button" class="map" data-stop="' + esc(stop.stopId) + '" data-lat="' + esc(stop.lat) + '" data-lon="' + esc(stop.lon) +
          '" data-name="' + esc(stop.name) + '" aria-label="' + esc(stop.name) + 'の場所を地図で見る">📍</button>';
 }
 
 /* ---------- 乗り場の地図の吹き出し ----------
-   国土地理院の地図（地理院タイル）を数枚並べて、乗り場の位置に印を付ける。
-   地図の範囲はどの乗り場でも同じ（すべての乗り場が入る荻窪駅前）にして、印の位置だけを変える。
-   外部の地図アプリは開かず、× で閉じる。 */
+   「図」: 道路（ロータリー・青梅街道）と線路だけのシンプルな絵に、荻窪駅のすべてののりばを点で描き、
+          押した便の乗り場だけを赤く目立たせる。道路と線路の形は OpenStreetMap から一度だけ取ってきて保存する。
+   「写真」: 国土地理院の航空写真。
+   範囲はどの乗り場でも同じ（使う乗り場と荻窪駅がすべて入る範囲）で、印の位置だけが変わる。× で閉じる。 */
 var MAP_MAX_ZOOM = 18;   // 1画素がおよそ0.5m。乗り場が近くに集まっていれば、ロータリーが大きく見えるこの縮尺
 
-// 地図の種類。
-//   simple: 文字や記号（〒・交番の X など）が一切無い淡色地図（CARTO light_nolabels、OpenStreetMap のデータ）。
-//           道路・線路・建物の形だけなので、目印として「荻窪駅」だけをこちらで書き入れる。
-//   photo:  国土地理院の航空写真（記号なし）
 var MAP_LAYERS = {
-  simple: { label: "地図", url: "https://{s}.basemaps.cartocdn.com/light_nolabels/{z}/{x}/{y}.png",
-            credit: '© <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener">OpenStreetMap</a> contributors © <a href="https://carto.com/attributions" target="_blank" rel="noopener">CARTO</a>' },
-  photo:  { label: "写真", url: "https://cyberjapandata.gsi.go.jp/xyz/seamlessphoto/{z}/{x}/{y}.jpg",
-            credit: '出典: <a href="https://maps.gsi.go.jp/development/ichiran.html" target="_blank" rel="noopener">地理院タイル（全国最新写真）</a>' }
+  draw:  { label: "図",
+           credit: '道路: © <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener">OpenStreetMap</a> contributors' },
+  photo: { label: "写真", url: "https://cyberjapandata.gsi.go.jp/xyz/seamlessphoto/{z}/{x}/{y}.jpg",
+           credit: '出典: <a href="https://maps.gsi.go.jp/development/ichiran.html" target="_blank" rel="noopener">地理院タイル（全国最新写真）</a>' }
 };
 var KEY_MAPLAYER = (BUSBOARD_CONFIG.storageKey || "busboard") + ".maplayer";
-function mapLayer() { return MAP_LAYERS[load(KEY_MAPLAYER)] ? load(KEY_MAPLAYER) : "simple"; }
-function tileUrl(layer, z, x, y) {
-  var s = "abcd".charAt((+x + +y) % 4);   // CARTO はサーバを a〜d に分けている
-  return MAP_LAYERS[layer].url.replace("{s}", s).replace("{z}", z).replace("{x}", x).replace("{y}", y);
-}
+var KEY_OSM      = (BUSBOARD_CONFIG.storageKey || "busboard") + ".osm";
+function mapLayer() { return MAP_LAYERS[load(KEY_MAPLAYER)] ? load(KEY_MAPLAYER) : "draw"; }
 var $bubble = document.getElementById("mapbubble");
+var BUBBLE = null;   // 開いている吹き出しの情報（絵の描き直しに使う）
 
-// 緯度経度 → ズーム z の世界全体での画素位置
+// 緯度経度 ⇔ ズーム z の世界全体での画素位置
 function worldPx(lat, lon, z) {
   var n = Math.pow(2, z) * 256, rad = lat * Math.PI / 180;
   return { x: (lon + 180) / 360 * n, y: (1 - Math.log(Math.tan(rad) + 1 / Math.cos(rad)) / Math.PI) / 2 * n };
 }
+function worldLatLon(x, y, z) {
+  var n = Math.pow(2, z) * 256;
+  return { lat: Math.atan(Math.sinh(Math.PI * (1 - 2 * y / n))) * 180 / Math.PI, lon: x / n * 360 - 180 };
+}
 
-// すべての乗り場と目印が余白つきで入る、いちばん大きい縮尺と中心
+// 使う乗り場・目印・近くののりばがすべて余白つきで入る、いちばん大きい縮尺と中心
+var MAP_NEAR_M = 300;
 function mapView(w, h) {
   var pts = ((STATE.data && STATE.data.retStops) || [])
     .map(function (s) { return [parseFloat(s.lat), parseFloat(s.lon)]; })
@@ -482,6 +482,16 @@ function mapView(w, h) {
   // 目印（荻窪駅）も必ず地図に入るようにする
   var lm = BUSBOARD_CONFIG.returnMode && BUSBOARD_CONFIG.returnMode.landmark;
   if (lm) pts.push([lm.lat, lm.lon]);
+  // ロータリーや青梅街道沿いの、近くにある荻窪駅ののりばもすべて入れる（南口など遠いものは入れない）
+  if (pts.length) {
+    var cLat = pts.reduce(function (t, p) { return t + p[0]; }, 0) / pts.length;
+    var cLon = pts.reduce(function (t, p) { return t + p[1]; }, 0) / pts.length;
+    ((STATE.data && STATE.data.poles) || []).forEach(function (p) {
+      var la = parseFloat(p.lat), lo = parseFloat(p.lon);
+      var dy = (la - cLat) * 111000, dx = (lo - cLon) * 111000 * Math.cos(cLat * Math.PI / 180);
+      if (Math.sqrt(dx * dx + dy * dy) <= MAP_NEAR_M) pts.push([la, lo]);
+    });
+  }
   var lats = pts.map(function (p) { return p[0]; }), lons = pts.map(function (p) { return p[1]; });
   var c = { lat: (Math.min.apply(null, lats) + Math.max.apply(null, lats)) / 2,
             lon: (Math.min.apply(null, lons) + Math.max.apply(null, lons)) / 2 };
@@ -491,7 +501,155 @@ function mapView(w, h) {
     if (b.x - a.x <= w - 48 && b.y - a.y <= h - 48) break;   // 印が端で切れないよう 24px の余白
   }
   var cp = worldPx(c.lat, c.lon, z);
-  return { z: z, left: cp.x - w / 2, top: cp.y - h / 2 };
+  return { z: z, left: cp.x - w / 2, top: cp.y - h / 2, w: w, h: h };
+}
+
+/* ---- 道路と線路の形（OpenStreetMap） ---- */
+function viewBbox(v) {
+  var nw = worldLatLon(v.left, v.top, v.z), se = worldLatLon(v.left + v.w, v.top + v.h, v.z);
+  return [se.lat, nw.lon, nw.lat, se.lon].map(function (x) { return x.toFixed(4); }).join(",");   // 南,西,北,東
+}
+function loadOsm(bbox) {
+  try { var o = JSON.parse(load(KEY_OSM) || "null"); return o && o.bbox === bbox ? o : null; } catch (_) { return null; }
+}
+
+// 絵に使うものだけを種類分けして残す（歩道・建物などは描かない）
+function osmKind(t) {
+  var hw = t.highway;
+  if (/^(motorway|trunk|primary)(_link)?$/.test(hw)) return "major";
+  if (/^(secondary|tertiary)(_link)?$/.test(hw)) return "mid";
+  if (/^(residential|unclassified|living_street|service|road)$/.test(hw)) return "minor";
+  if (hw === "pedestrian" && t.area !== "yes") return "minor";
+  if (/^(rail|subway|light_rail)$/.test(t.railway)) return "rail";
+  if (t.amenity === "bus_station") return "bus";
+  if (t.public_transport === "station" || t.building === "train_station" || t.railway === "station") return "station";
+  return null;
+}
+
+var osmLoading = false;
+function fetchOsm(bbox) {
+  if (osmLoading) return;
+  osmLoading = true;
+  var q = "[out:json][timeout:25];(" +
+          'way["highway"](' + bbox + ');way["railway"~"^(rail|subway|light_rail)$"](' + bbox + ");" +
+          'way["amenity"="bus_station"](' + bbox + ');way["public_transport"="station"](' + bbox + ');' +
+          'way["building"="train_station"](' + bbox + "););out tags geom;";
+  fetch("https://overpass-api.de/api/interpreter", {
+    method: "POST", body: "data=" + encodeURIComponent(q),
+    headers: { "Content-Type": "application/x-www-form-urlencoded" }
+  }).then(function (res) {
+    if (!res.ok) throw new Error("HTTP " + res.status);
+    return res.json();
+  }).then(function (j) {
+    var ways = [];
+    (j.elements || []).forEach(function (el) {
+      var k = osmKind(el.tags || {});
+      if (!k || !el.geometry) return;
+      ways.push({ k: k, n: (el.tags && el.tags.name) || "",
+                  g: el.geometry.map(function (p) { return [+p.lat.toFixed(6), +p.lon.toFixed(6)]; }) });
+    });
+    save(KEY_OSM, JSON.stringify({ bbox: bbox, ways: ways }));
+  }).catch(function () {
+    if (BUBBLE) BUBBLE.osmFailed = true;
+  }).then(function () {
+    osmLoading = false;
+    if (BUBBLE && BUBBLE.layer === "draw") renderMapInner();   // 届いたら描き直す
+  });
+}
+
+// 乗り場の絵（SVG）。道路は白、縁取りと線路は灰色、のりばは灰色の点
+function drawSchematic(v, osm, curId) {
+  var s = Math.pow(2, v.z - 17);   // 線の太さは ズーム17 を基準にする
+  function xy(lat, lon) { var p = worldPx(lat, lon, v.z); return [p.x - v.left, p.y - v.top]; }
+  function path(g) { return g.map(function (p, i) { var q = xy(p[0], p[1]); return (i ? "L" : "M") + q[0].toFixed(1) + " " + q[1].toFixed(1); }).join(""); }
+  var ways = osm ? osm.ways : [];
+  function of(k) { return ways.filter(function (w) { return w.k === k; }); }
+
+  var out = '<svg class="mb-svg" viewBox="0 0 ' + v.w + " " + v.h + '" width="' + v.w + '" height="' + v.h + '">' +
+            '<rect width="100%" height="100%" fill="#eceef1"/>';
+  of("station").forEach(function (w) { out += '<path d="' + path(w.g) + 'Z" fill="#d5dae0"/>'; });
+  of("bus").forEach(function (w) { out += '<path d="' + path(w.g) + 'Z" fill="#dfe4ea"/>'; });
+
+  var widths = { minor: 4.5, mid: 7, major: 10 };
+  ["minor", "mid", "major"].forEach(function (k) {      // 縁取りを先に、白い道を後に
+    var wd = Math.max(2, widths[k] * s);
+    of(k).forEach(function (w) { out += '<path d="' + path(w.g) + '" fill="none" stroke="#bcc4cd" stroke-width="' + (wd + 2) + '" stroke-linecap="round" stroke-linejoin="round"/>'; });
+  });
+  ["minor", "mid", "major"].forEach(function (k) {
+    var wd = Math.max(2, widths[k] * s);
+    of(k).forEach(function (w) { out += '<path d="' + path(w.g) + '" fill="none" stroke="#ffffff" stroke-width="' + wd + '" stroke-linecap="round" stroke-linejoin="round"/>'; });
+  });
+  of("rail").forEach(function (w) {
+    out += '<path d="' + path(w.g) + '" fill="none" stroke="#8a929c" stroke-width="' + Math.max(2, 3.5 * s) + '"/>' +
+           '<path d="' + path(w.g) + '" fill="none" stroke="#eceef1" stroke-width="' + Math.max(1, 1.4 * s) + '" stroke-dasharray="' + (8 * s) + " " + (8 * s) + '"/>';
+  });
+
+  // 文字は「青梅街道」と「荻窪駅」だけ
+  var label = function (x, y, text, rot) {
+    return '<text x="' + x.toFixed(1) + '" y="' + y.toFixed(1) + '" text-anchor="middle" dominant-baseline="middle" class="mb-label"' +
+           (rot ? ' transform="rotate(' + rot.toFixed(1) + " " + x.toFixed(1) + " " + y.toFixed(1) + ')"' : "") + ">" + esc(text) + "</text>";
+  };
+  // 青梅街道の上で、画面の中に入っている点を道沿いに細かく調べ、横方向の真ん中に近い所に名前を置く
+  var best = null;
+  of("major").filter(function (w) { return w.n.indexOf("青梅街道") >= 0; }).forEach(function (w) {
+    var pts = w.g.map(function (p) { return xy(p[0], p[1]); });
+    for (var i = 1; i < pts.length; i++) {
+      var a0 = pts[i - 1], a1 = pts[i], len = Math.hypot(a1[0] - a0[0], a1[1] - a0[1]);
+      for (var t = 0; t <= len; t += 8) {
+        var x = a0[0] + (a1[0] - a0[0]) * t / len, y = a0[1] + (a1[1] - a0[1]) * t / len;
+        if (x < 40 || x > v.w - 40 || y < -10 || y > v.h + 10) continue;
+        var d = Math.abs(x - v.w * 0.6);   // 真ん中より少し右（荻窪駅の文字と重なりにくい）
+        if (!best || d < best.d) best = { d: d, x: x, y: y, ang: Math.atan2(a1[1] - a0[1], a1[0] - a0[0]) * 180 / Math.PI };
+      }
+    }
+  });
+  if (best) {
+    var ang = best.ang;
+    if (ang > 90) ang -= 180; if (ang < -90) ang += 180;   // 文字が逆さにならないように
+    // 道が端ぎりぎりにあるときは、文字が切れないよう少し内側に寄せる
+    out += label(best.x, Math.max(10, Math.min(v.h - 10, best.y)), "青梅街道", ang);
+  }
+  var lm = BUSBOARD_CONFIG.returnMode && BUSBOARD_CONFIG.returnMode.landmark;
+  if (lm) { var lp = xy(lm.lat, lm.lon); out += label(lp[0], lp[1], lm.name, 0); }
+
+  // 荻窪駅のすべてののりばを点で（押した便の乗り場は、この上に赤い印を重ねる）
+  ((STATE.data && STATE.data.poles) || []).forEach(function (p) {
+    if (p.id === curId) return;
+    var q = xy(parseFloat(p.lat), parseFloat(p.lon));
+    if (q[0] < 0 || q[0] > v.w || q[1] < 0 || q[1] > v.h) return;
+    out += '<circle cx="' + q[0].toFixed(1) + '" cy="' + q[1].toFixed(1) + '" r="4" fill="#8a949f" stroke="#fff" stroke-width="1.5"/>';
+  });
+
+  if (!osm) {
+    out += '<text x="8" y="' + (v.h - 8) + '" class="mb-status">' +
+           (BUBBLE && BUBBLE.osmFailed ? "道路の形を取得できませんでした（のりばの点のみ）" : "道路の形を読み込んでいます…") + "</text>";
+  }
+  return out + "</svg>";
+}
+
+// 吹き出しの中の絵（または写真）と赤い印を描く
+function renderMapInner() {
+  if (!BUBBLE) return;
+  var b = BUBBLE, v = b.v, layer = b.layer, inner = "";
+  if (layer === "photo") {
+    for (var ty = Math.floor(v.top / 256); ty <= Math.floor((v.top + v.h) / 256); ty++) {
+      for (var tx = Math.floor(v.left / 256); tx <= Math.floor((v.left + v.w) / 256); tx++) {
+        inner += '<img alt="" src="' + MAP_LAYERS.photo.url.replace("{z}", v.z).replace("{x}", tx).replace("{y}", ty) +
+                 '" style="left:' + Math.round(tx * 256 - v.left) + "px;top:" + Math.round(ty * 256 - v.top) + 'px">';
+      }
+    }
+  } else {
+    var bbox = viewBbox(v), osm = loadOsm(bbox);
+    if (!osm && !b.osmFailed) fetchOsm(bbox);
+    inner = drawSchematic(v, osm, b.stopId);
+  }
+  var pin = worldPx(b.lat, b.lon, v.z);
+  inner += '<span class="mb-pin" aria-hidden="true" style="left:' + Math.round(pin.x - v.left) + "px;top:" + Math.round(pin.y - v.top) + 'px"></span>';
+  var $m = $bubble.querySelector(".mb-map");
+  $m.className = "mb-map " + layer;
+  $m.innerHTML = inner;
+  $bubble.querySelector(".mb-credit").innerHTML = MAP_LAYERS[layer].credit;
+  $bubble.querySelectorAll(".mb-layer").forEach(function (t) { t.classList.toggle("on", t.getAttribute("data-layer") === layer); });
 }
 
 function openMapBubble(btn) {
@@ -499,36 +657,19 @@ function openMapBubble(btn) {
   if (isNaN(lat) || isNaN(lon)) return;
 
   var w = Math.min(320, window.innerWidth - 24), h = Math.round(w * 0.68);
-  var v = mapView(w, h), left = v.left, top = v.top;
-  var pin = worldPx(lat, lon, v.z);
-  // 目印（荻窪駅）。地図の範囲に入っていれば名前を書き入れる
-  var mark = "", lm = BUSBOARD_CONFIG.returnMode && BUSBOARD_CONFIG.returnMode.landmark;
-  if (lm) {
-    var lp = worldPx(lm.lat, lm.lon, v.z), lx = lp.x - left, ly = lp.y - top;
-    if (lx > 0 && lx < w && ly > 0 && ly < h) {
-      mark = '<span class="mb-landmark" style="left:' + Math.round(lx) + "px;top:" + Math.round(ly) + 'px">' + esc(lm.name) + "</span>";
-    }
-  }
-
-  var layer = mapLayer(), tiles = "";
-  for (var ty = Math.floor(top / 256); ty <= Math.floor((top + h) / 256); ty++) {
-    for (var tx = Math.floor(left / 256); tx <= Math.floor((left + w) / 256); tx++) {
-      tiles += '<img alt="" data-z="' + v.z + '" data-x="' + tx + '" data-y="' + ty + '" src="' + tileUrl(layer, v.z, tx, ty) +
-               '" style="left:' + Math.round(tx * 256 - left) + "px;top:" + Math.round(ty * 256 - top) + 'px">';
-    }
-  }
+  BUBBLE = { v: mapView(w, h), lat: lat, lon: lon, stopId: btn.getAttribute("data-stop"), layer: mapLayer() };
   var tabs = Object.keys(MAP_LAYERS).map(function (k) {
-    return '<button type="button" class="mb-layer' + (k === layer ? " on" : "") + '" data-layer="' + k + '">' + MAP_LAYERS[k].label + "</button>";
+    return '<button type="button" class="mb-layer" data-layer="' + k + '">' + MAP_LAYERS[k].label + "</button>";
   }).join("");
 
   $bubble.innerHTML =
     '<div class="mb-head"><span class="mb-title">' + esc(btn.getAttribute("data-name")) + "</span>" +
       '<span class="mb-layers">' + tabs + "</span>" +
       '<button type="button" class="mb-close" aria-label="閉じる">×</button></div>' +
-    '<div class="mb-map ' + layer + '" style="width:' + w + "px;height:" + h + 'px">' + tiles +
-      mark + '<span class="mb-pin" aria-hidden="true" style="left:' + Math.round(pin.x - left) + "px;top:" + Math.round(pin.y - top) + 'px"></span></div>' +
-    '<div class="mb-credit">' + MAP_LAYERS[layer].credit + "</div>" +
+    '<div class="mb-map" style="width:' + w + "px;height:" + h + 'px"></div>' +
+    '<div class="mb-credit"></div>' +
     '<span class="mb-arrow"></span>';
+  renderMapInner();
   $bubble.hidden = false;
 
   // ボタンの下に出す。下に入りきらなければ上に出す。吹き出しの矢印はボタンを指す
@@ -541,23 +682,16 @@ function openMapBubble(btn) {
   $bubble.querySelector(".mb-arrow").style.left = (r.left + r.width / 2 - x - 8) + "px";
 }
 
-function closeMapBubble() { $bubble.hidden = true; $bubble.innerHTML = ""; }
-
-// 地図と写真の切り替え（吹き出しの位置はそのまま、絵だけ差し替える。選んだほうを覚える）
-function switchMapLayer(layer) {
-  save(KEY_MAPLAYER, layer);
-  $bubble.querySelectorAll(".mb-map img").forEach(function (img) {
-    img.src = tileUrl(layer, img.getAttribute("data-z"), img.getAttribute("data-x"), img.getAttribute("data-y"));
-  });
-  $bubble.querySelector(".mb-map").className = "mb-map " + layer;
-  $bubble.querySelectorAll(".mb-layer").forEach(function (b) { b.classList.toggle("on", b.getAttribute("data-layer") === layer); });
-  $bubble.querySelector(".mb-credit").innerHTML = MAP_LAYERS[layer].credit;
-}
+function closeMapBubble() { BUBBLE = null; $bubble.hidden = true; $bubble.innerHTML = ""; }
 
 $bubble.addEventListener("click", function (e) {
   if (e.target.closest(".mb-close")) closeMapBubble();
   var tab = e.target.closest(".mb-layer");
-  if (tab) switchMapLayer(tab.getAttribute("data-layer"));
+  if (tab && BUBBLE) {   // 図と写真の切り替え（選んだほうを覚える）
+    BUBBLE.layer = tab.getAttribute("data-layer");
+    save(KEY_MAPLAYER, BUBBLE.layer);
+    renderMapInner();
+  }
 });
 document.addEventListener("keydown", function (e) { if (e.key === "Escape") closeMapBubble(); });
 

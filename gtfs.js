@@ -12,7 +12,8 @@ var GTFS = (function () {
 
   // 保存する時刻表の形式の番号。中身の形を変えたら上げると、スマホ側で自動的に作り直される
   //   2: 「荻窪駅から」の乗り場に緯度・経度を持たせた
-  var FORMAT = 2;
+  //   3: 荻窪駅のすべてののりば（poles）を持たせた（乗り場の絵に点で描くため）
+  var FORMAT = 3;
 
   /* ---------- 取得 ---------- */
   function addToken(url, token) {
@@ -235,6 +236,7 @@ var GTFS = (function () {
     // 「荻窪駅から」モード: 荻窪駅ののりばから乗って、returnMode.stops ののりばで降りる便
     var ret = cfg.returnMode || { stops: [] };
     var retTrips = [], retStops = [], retStopMap = {};
+    var poles = [];   // 荻窪駅のすべてののりば（使わないものも含む）
 
     function pool(map, list, v) {
       v = v || "";
@@ -331,6 +333,10 @@ var GTFS = (function () {
             return true;
           });
           fromRows = null;
+          Object.keys(fromPoles).forEach(function (id) {
+            var p = fromPoles[id];
+            poles.push({ id: id, op: opKey, name: p.name, lat: p.lat, lon: p.lon });
+          });
           return forEachRow(buf, entries, "trips.txt", function (v, ix) {
             var tid = col(v, ix, "trip_id");
             if (!tripIds[tid]) return;
@@ -457,7 +463,7 @@ var GTFS = (function () {
         format:     FORMAT,
         validUntil: keys.length ? keys[keys.length - 1] : null,
         ops: ops, stops: stops, routes: routes, signs: signs, dates: dates, trips: trips,
-        retTrips: retTrips, retStops: retStops,
+        retTrips: retTrips, retStops: retStops, poles: poles,
         retCfg: ret.stops.map(function (s) { return s.key + "=" + (s.stopId || ""); }).join(","),
         meta: meta
       };
