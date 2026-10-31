@@ -267,7 +267,7 @@ function fetchArrayBuffer(url) {
 /* ===========================================================================
    6. 端末内の保存
    =========================================================================== */
-var APP_VERSION = "2";   // 更新が反映されたかを設定画面で確かめるための番号（index.html の ?v= と揃える）
+var APP_VERSION = "3";   // 更新が反映されたかを設定画面で確かめるための番号（index.html の ?v= と揃える）
 var KEY_TOKEN = "busboard.token";
 // トークンは同じサイト（jlsawo.github.io）のいさバスと共有し、時刻表はアプリごとに分ける
 var KEY_DATA  = BUSBOARD_CONFIG.storageKey || "busboard.timetable";
@@ -526,8 +526,16 @@ function updatePanelInfo() {
     : "時刻表: まだありません") + "　／　アプリの版: " + APP_VERSION;
 }
 
+// config.js ののりば（stop_id）が、保存してある時刻表を作ったときと違うか
+function stopsChanged(d) {
+  var want = BUSBOARD_CONFIG.stops.map(function (s) { return s.key + "=" + (s.stopId || ""); }).join(",");
+  var have = (d.stops || []).map(function (s) { return s.key + "=" + (s.stopId || ""); }).join(",");
+  return want !== have;
+}
+
 function timetableIsOld(d) {
   if (!d || !d.builtAtMs) return true;
+  if (stopsChanged(d)) return true;   // のりばの設定を変えたら、ボタンを押さなくても作り直す
   var ageDays = (Date.now() - d.builtAtMs) / 86400000;
   return ageDays >= BUSBOARD_CONFIG.timetableMaxAgeDays;
 }
