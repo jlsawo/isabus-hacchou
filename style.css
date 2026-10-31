@@ -172,9 +172,10 @@ body.stale .row .mins { color: var(--stale) !important; }
   border: 0; padding: 6px 12px;
 }
 .mb-layer.on { color: #fff; background: #3b4552; }
+/* 今回の乗り場: 灰色の点（直径8px＋白い縁）と同じ形で、ひとまわり大きく、色だけ赤に */
 .mb-pin {
-  position: absolute; width: 18px; height: 18px; margin: -9px 0 0 -9px;   /* 位置は app.js が指定 */
-  border-radius: 50%; background: #e8332a; border: 3px solid #fff; box-shadow: 0 0 0 2px #e8332a, 0 2px 6px rgba(0, 0, 0, .4);
+  position: absolute; width: 13px; height: 13px; margin: -6.5px 0 0 -6.5px;   /* 位置は app.js が指定 */
+  border-radius: 50%; background: #e8332a; border: 1.5px solid #fff;
 }
 .mb-credit { font-size: 10px; color: #5b6573; text-align: right; padding-top: 3px; }
 .mb-credit a { color: inherit; }
