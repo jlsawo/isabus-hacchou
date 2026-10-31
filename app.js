@@ -273,7 +273,7 @@ function fetchArrayBuffer(url) {
 /* ===========================================================================
    6. 端末内の保存
    =========================================================================== */
-var APP_VERSION = "13";   // 更新が反映されたかを設定画面で確かめるための番号（index.html の ?v= と揃える）
+var APP_VERSION = "14";   // 更新が反映されたかを設定画面で確かめるための番号（index.html の ?v= と揃える）
 var KEY_TOKEN = "busboard.token";
 // トークンは同じサイト（jlsawo.github.io）のいさバスと共有し、時刻表はアプリごとに分ける
 var KEY_DATA  = BUSBOARD_CONFIG.storageKey || "busboard.timetable";
@@ -450,14 +450,22 @@ function mapLink(stop) {
    外部の地図アプリは開かず、× で閉じる。 */
 var MAP_MAX_ZOOM = 18;   // 1画素がおよそ0.5m。乗り場が近くに集まっていれば、ロータリーが大きく見えるこの縮尺
 
-// 地図の種類。淡色地図は白黒にして記号やオレンジの道路を目立たなくする。写真は記号が無い
+// 地図の種類。
+//   simple: 文字や記号（〒・交番の X など）が一切無い淡色地図（CARTO light_nolabels、OpenStreetMap のデータ）。
+//           道路・線路・建物の形だけなので、目印として「荻窪駅」だけをこちらで書き入れる。
+//   photo:  国土地理院の航空写真（記号なし）
 var MAP_LAYERS = {
-  pale:  { label: "地図", url: "https://cyberjapandata.gsi.go.jp/xyz/pale/{z}/{x}/{y}.png",         credit: "地理院タイル（淡色地図）" },
-  photo: { label: "写真", url: "https://cyberjapandata.gsi.go.jp/xyz/seamlessphoto/{z}/{x}/{y}.jpg", credit: "地理院タイル（全国最新写真）" }
+  simple: { label: "地図", url: "https://{s}.basemaps.cartocdn.com/light_nolabels/{z}/{x}/{y}.png",
+            credit: '© <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener">OpenStreetMap</a> contributors © <a href="https://carto.com/attributions" target="_blank" rel="noopener">CARTO</a>' },
+  photo:  { label: "写真", url: "https://cyberjapandata.gsi.go.jp/xyz/seamlessphoto/{z}/{x}/{y}.jpg",
+            credit: '出典: <a href="https://maps.gsi.go.jp/development/ichiran.html" target="_blank" rel="noopener">地理院タイル（全国最新写真）</a>' }
 };
 var KEY_MAPLAYER = (BUSBOARD_CONFIG.storageKey || "busboard") + ".maplayer";
-function mapLayer() { return MAP_LAYERS[load(KEY_MAPLAYER)] ? load(KEY_MAPLAYER) : "pale"; }
-function tileUrl(layer, z, x, y) { return MAP_LAYERS[layer].url.replace("{z}", z).replace("{x}", x).replace("{y}", y); }
+function mapLayer() { return MAP_LAYERS[load(KEY_MAPLAYER)] ? load(KEY_MAPLAYER) : "simple"; }
+function tileUrl(layer, z, x, y) {
+  var s = "abcd".charAt((+x + +y) % 4);   // CARTO はサーバを a〜d に分けている
+  return MAP_LAYERS[layer].url.replace("{s}", s).replace("{z}", z).replace("{x}", x).replace("{y}", y);
+}
 var $bubble = document.getElementById("mapbubble");
 
 // 緯度経度 → ズーム z の世界全体での画素位置
@@ -466,11 +474,14 @@ function worldPx(lat, lon, z) {
   return { x: (lon + 180) / 360 * n, y: (1 - Math.log(Math.tan(rad) + 1 / Math.cos(rad)) / Math.PI) / 2 * n };
 }
 
-// すべての乗り場が余白つきで入る、いちばん大きい縮尺と中心
+// すべての乗り場と目印が余白つきで入る、いちばん大きい縮尺と中心
 function mapView(w, h) {
   var pts = ((STATE.data && STATE.data.retStops) || [])
     .map(function (s) { return [parseFloat(s.lat), parseFloat(s.lon)]; })
     .filter(function (p) { return !isNaN(p[0]) && !isNaN(p[1]); });
+  // 目印（荻窪駅）も必ず地図に入るようにする
+  var lm = BUSBOARD_CONFIG.returnMode && BUSBOARD_CONFIG.returnMode.landmark;
+  if (lm) pts.push([lm.lat, lm.lon]);
   var lats = pts.map(function (p) { return p[0]; }), lons = pts.map(function (p) { return p[1]; });
   var c = { lat: (Math.min.apply(null, lats) + Math.max.apply(null, lats)) / 2,
             lon: (Math.min.apply(null, lons) + Math.max.apply(null, lons)) / 2 };
@@ -490,6 +501,14 @@ function openMapBubble(btn) {
   var w = Math.min(320, window.innerWidth - 24), h = Math.round(w * 0.68);
   var v = mapView(w, h), left = v.left, top = v.top;
   var pin = worldPx(lat, lon, v.z);
+  // 目印（荻窪駅）。地図の範囲に入っていれば名前を書き入れる
+  var mark = "", lm = BUSBOARD_CONFIG.returnMode && BUSBOARD_CONFIG.returnMode.landmark;
+  if (lm) {
+    var lp = worldPx(lm.lat, lm.lon, v.z), lx = lp.x - left, ly = lp.y - top;
+    if (lx > 0 && lx < w && ly > 0 && ly < h) {
+      mark = '<span class="mb-landmark" style="left:' + Math.round(lx) + "px;top:" + Math.round(ly) + 'px">' + esc(lm.name) + "</span>";
+    }
+  }
 
   var layer = mapLayer(), tiles = "";
   for (var ty = Math.floor(top / 256); ty <= Math.floor((top + h) / 256); ty++) {
@@ -507,8 +526,8 @@ function openMapBubble(btn) {
       '<span class="mb-layers">' + tabs + "</span>" +
       '<button type="button" class="mb-close" aria-label="閉じる">×</button></div>' +
     '<div class="mb-map ' + layer + '" style="width:' + w + "px;height:" + h + 'px">' + tiles +
-      '<span class="mb-pin" aria-hidden="true" style="left:' + Math.round(pin.x - left) + "px;top:" + Math.round(pin.y - top) + 'px"></span></div>' +
-    '<div class="mb-credit">出典: <a href="https://maps.gsi.go.jp/development/ichiran.html" target="_blank" rel="noopener">' + MAP_LAYERS[layer].credit + "</a></div>" +
+      mark + '<span class="mb-pin" aria-hidden="true" style="left:' + Math.round(pin.x - left) + "px;top:" + Math.round(pin.y - top) + 'px"></span></div>' +
+    '<div class="mb-credit">' + MAP_LAYERS[layer].credit + "</div>" +
     '<span class="mb-arrow"></span>';
   $bubble.hidden = false;
 
@@ -532,7 +551,7 @@ function switchMapLayer(layer) {
   });
   $bubble.querySelector(".mb-map").className = "mb-map " + layer;
   $bubble.querySelectorAll(".mb-layer").forEach(function (b) { b.classList.toggle("on", b.getAttribute("data-layer") === layer); });
-  $bubble.querySelector(".mb-credit a").textContent = MAP_LAYERS[layer].credit;
+  $bubble.querySelector(".mb-credit").innerHTML = MAP_LAYERS[layer].credit;
 }
 
 $bubble.addEventListener("click", function (e) {
