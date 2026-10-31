@@ -1,0 +1,94 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#06080b">
+<meta name="color-scheme" content="dark">
+<title>はじめての方へ｜いさバス八丁</title>
+<link rel="icon" href="icons/icon.svg" type="image/svg+xml">
+<style>
+  /* お年寄りにも読みやすいよう、文字は大きく、行間は広く、色の差ははっきりと */
+  :root {
+    --bg: #06080b; --card: #12161c; --fg: #f2f5f8; --sub: #c3cad3;
+    --accent: #ffd24a; --link: #7cc4ff; --hair: #2c3644;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    background: var(--bg); color: var(--fg);
+    font-family: "Noto Sans JP", "Hiragino Kaku Gothic ProN", "Yu Gothic", sans-serif;
+    font-size: 20px; line-height: 1.8;
+    padding: calc(20px + env(safe-area-inset-top, 0px)) 16px calc(32px + env(safe-area-inset-bottom, 0px));
+  }
+  main { max-width: 640px; margin: 0 auto; display: flex; flex-direction: column; gap: 20px; }
+  h1 { font-size: 28px; line-height: 1.4; }
+  p.lead { color: var(--sub); }
+  .card { background: var(--card); border: 1px solid var(--hair); border-radius: 14px; padding: 18px 16px; }
+  .card h2 { font-size: 22px; line-height: 1.5; margin-bottom: 8px; display: flex; gap: 12px; align-items: baseline; }
+  .num {
+    flex: 0 0 auto; width: 1.7em; height: 1.7em; border-radius: 50%;
+    background: var(--accent); color: #06080b; font-weight: 900;
+    display: inline-flex; align-items: center; justify-content: center; font-size: 20px;
+  }
+  .card p + p { margin-top: 8px; }
+  .note { color: var(--sub); font-size: 18px; }
+  b { color: var(--accent); }
+  .btn {
+    display: block; text-align: center; text-decoration: none;
+    font-size: 22px; font-weight: 700; color: var(--fg);
+    background: #1f4f86; border: 1px solid #2f6db3; border-radius: 12px;
+    padding: 16px; margin-top: 12px;
+  }
+  .btn.back { background: #1d2530; border-color: var(--hair); }
+  .help { border-color: #6b5a2f; }
+</style>
+</head>
+<body>
+<main>
+  <h1>はじめての方へ</h1>
+  <p class="lead">
+    このアプリでバスの情報を見るには、<b>「アクセストークン」</b>という、あなた専用の合いことば（英数字の列）が1つ必要です。
+    無料で、最初に一度入れるだけで、あとはずっと使えます。
+  </p>
+  <p class="lead">
+    ご家族やお知り合いに手伝ってもらいながら進めても大丈夫です。
+  </p>
+
+  <section class="card">
+    <h2><span class="num">1</span>登録のページを開く</h2>
+    <p>下のボタンを押すと、バスの情報を配っている「公共交通オープンデータセンター」のページが開きます。</p>
+    <a class="btn" href="https://developer.odpt.org/" target="_blank" rel="noopener">登録のページを開く</a>
+  </section>
+
+  <section class="card">
+    <h2><span class="num">2</span>利用者登録をする</h2>
+    <p>ページの中の<b>「ユーザ登録」</b>（または「新規登録」）を押し、画面の案内にしたがって、メールアドレスなどを入れます。</p>
+    <p>入れたメールアドレスに確認のメールが届くので、メールの中のリンクを押します。</p>
+    <p class="note">※ 登録が使えるようになるまで、<b>2日ほど</b>かかることがあります。そのときは、使えるようになったというメールが届くまで待ちます。</p>
+  </section>
+
+  <section class="card">
+    <h2><span class="num">3</span>アクセストークンをコピーする</h2>
+    <p>登録したメールアドレスとパスワードで<b>ログイン</b>します。</p>
+    <p>画面の右上の<b>「ログイン中▼」</b>を押し、出てきた中から<b>アクセストークン</b>の画面を開きます。</p>
+    <p>「アクセストークン」の欄にある長い英数字を<b>指で長く押し</b>、「すべて選択」→「コピー」の順に押します。</p>
+    <p class="note">※ その画面の「削除」「追加」「更新」のボタンは押さないでください。</p>
+  </section>
+
+  <section class="card">
+    <h2><span class="num">4</span>このアプリに貼り付ける</h2>
+    <p>このアプリにもどり、右下の<b>歯車（⚙）</b>を押します。</p>
+    <p>「ODPT アクセストークン」の入力欄を<b>指で長く押し</b>、「貼り付け」を押します。</p>
+    <p>青い<b>「保存して時刻表を取得」</b>ボタンを押します。1〜2分待つと、バスの情報が出ます。</p>
+  </section>
+
+  <section class="card help">
+    <h2>大切なお願い</h2>
+    <p>アクセストークンは<b>あなた専用</b>です。ほかの人に教えたり、ほかの人のスマホに入れたりしないでください。</p>
+    <p class="note">ご家族などで使う場合も、使う人ごとに登録してください。</p>
+  </section>
+
+  <a class="btn back" href="./">アプリにもどる</a>
+</main>
+</body>
+</html>
