@@ -1,7 +1,7 @@
-# いさバス八丁 — スマホ用 バス接近表示
+# いさバス — スマホ用 バス接近表示
 
 八丁・法務局杉並出張所・清水二丁目から **荻窪駅・阿佐ヶ谷駅方面** へ向かう便を、来る順に7件表示する Web アプリです。
-[いさバス](https://github.com/jlsawo/busboard) とは別のアプリで、仕組みは同じです。
+以前は「いさバス八丁」という名前でした（旧いさバス [jlsawo/busboard](https://github.com/jlsawo/busboard) の後継）。URL は https://jlsawo.github.io/isabus-hacchou/ のままです。
 Android の Chrome で開いて「ホーム画面に追加」→「インストール」すると、アプリとして使えます。
 
 分数の色は、八丁が薄めの緑、法務局杉並出張所が桜色、清水二丁目が青です（`config.js` の `stops[].color`）。
