@@ -71,6 +71,9 @@ var BUSBOARD_CONFIG = {
   returnMode: {
     label: "荻窪駅から",
     fromNamePrefix: "荻窪駅",
+    // 乗り場の地図（荻窪駅の案内図）で、時刻表の番号と案内図の番号が合わない乗り場だけ書く。
+    // 例: "XXXX_3": "N8"（北口8番）、"YYYY-02": "S2"（南口2番）
+    poleNumbers: {},
     // 乗り場の地図に四角で描く駅（JR 荻窪駅。OpenStreetMap の線路の真ん中に合わせた）。size は東西・南北の大きさ（メートル）
     landmark: { name: "荻窪駅", lat: 35.70441, lon: 139.62000, size: [90, 28] },
     stops: [

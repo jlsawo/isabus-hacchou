@@ -273,7 +273,7 @@ function fetchArrayBuffer(url) {
 /* ===========================================================================
    6. 端末内の保存
    =========================================================================== */
-var APP_VERSION = "27";   // 更新が反映されたかを設定画面で確かめるための番号（index.html の ?v= と揃える）
+var APP_VERSION = "28";   // 更新が反映されたかを設定画面で確かめるための番号（index.html の ?v= と揃える）
 var KEY_TOKEN = "busboard.token";
 // トークンは同じサイト（jlsawo.github.io）のいさバスと共有し、時刻表はアプリごとに分ける
 var KEY_DATA  = BUSBOARD_CONFIG.storageKey || "busboard.timetable";
@@ -679,13 +679,87 @@ function drawSchematic(v, osm, cur) {
   return out + "</svg>";
 }
 
-// 吹き出しの中の絵と赤い印を描く
+/* ---- 荻窪駅のバス乗り場の案内図（手描き） ----
+   バス会社の案内図と同じ配置で描く。座標は 465×273 の図の上の位置。
+   乗り場は「北口／南口」と番号で置く（番号は poleNumber、合わないときは config.js の returnMode.poleNumbers で直す）。 */
+var GUIDE_W = 465, GUIDE_H = 273;
+var GUIDE_POLES = {
+  N0: [314, 142], N1: [345, 142], N2: [367, 110], N3: [343, 82], N4: [298, 123],
+  N5: [22, 42], N6: [70, 60], N8: [402, 76], N9: [410, 22],
+  S1: [235, 236], S2: [190, 236], S3: [146, 236], S4: [100, 236]
+};
+var GUIDE_NOTES = { N8: "（午前のみ）", N9: "（午後のみ）" };
+
+// 乗り場 → 案内図の上の場所の名前（例: "N3"）。分からなければ ""
+function guideKey(name, id) {
+  var o = (BUSBOARD_CONFIG.returnMode && BUSBOARD_CONFIG.returnMode.poleNumbers) || {};
+  if (o[id]) return o[id];
+  var num = poleNumber(name, id);
+  if (!num) return "";
+  var key = (/南口/.test(name || "") ? "S" : "N") + num;
+  return GUIDE_POLES[key] ? key : "";
+}
+
+function drawGuideMap(cur, w, h) {
+  var road = 'fill="none" stroke="#ffffff" stroke-linecap="butt" stroke-linejoin="round"';
+  var out = '<svg class="mb-svg" viewBox="0 0 ' + GUIDE_W + " " + GUIDE_H + '" width="' + w + '" height="' + h + '">' +
+    '<rect width="100%" height="100%" fill="#2f3b52"/>' +
+    // 道路: 青梅街道、左の通り、ロータリーへ下りる道、東へ延びる道、北東の道
+    '<path d="M0 30 L95 50 L300 50" ' + road + ' stroke-width="18"/>' +
+    '<path d="M300 50 L465 50" ' + road + ' stroke-width="12"/>' +
+    '<path d="M55 50 L55 186" ' + road + ' stroke-width="12"/>' +
+    '<path d="M215 50 L285 98" ' + road + ' stroke-width="14"/>' +
+    '<path d="M380 128 L465 128" ' + road + ' stroke-width="14"/>' +
+    '<path d="M330 62 L380 38 L465 38" ' + road + ' stroke-width="10"/>' +
+    // ロータリーの広場
+    '<path d="M268 92 L330 62 L384 62 L384 156 L268 156 Z" fill="#ffffff"/>' +
+    // 荻窪タウンセブン
+    '<rect x="92" y="66" width="108" height="86" fill="#6b7685"/>' +
+    '<text x="146" y="104" text-anchor="middle" class="mb-gtext">荻窪タウン</text>' +
+    '<text x="146" y="122" text-anchor="middle" class="mb-gtext">セブン</text>' +
+    // 線路（白黒の帯）と駅
+    '<path d="M0 199 L465 199" stroke="#11161f" stroke-width="12"/>' +
+    '<path d="M0 199 L465 199" stroke="#ffffff" stroke-width="10" stroke-dasharray="14 14"/>' +
+    '<rect x="80" y="186" width="200" height="26" fill="#ffffff" stroke="#11161f" stroke-width="1"/>' +
+    '<text x="180" y="200" text-anchor="middle" dominant-baseline="middle" class="mb-station">荻窪駅</text>' +
+    '<rect x="288" y="182" width="30" height="34" fill="#ffffff" stroke="#11161f" stroke-width="1"/>' +
+    '<text x="303" y="193" text-anchor="middle" dominant-baseline="middle" class="mb-gsmall">北口</text>' +
+    '<text x="303" y="206" text-anchor="middle" dominant-baseline="middle" class="mb-gsmall">南口</text>' +
+    '<text x="150" y="38" text-anchor="middle" class="mb-label">青梅街道</text>';
+
+  // ほかの乗り場: 目立たない灰色の小さな丸と番号
+  Object.keys(GUIDE_POLES).forEach(function (k) {
+    if (k === cur.key) return;
+    var p = GUIDE_POLES[k];
+    out += '<circle cx="' + p[0] + '" cy="' + p[1] + '" r="7" fill="#556178"/>' +
+           '<text x="' + p[0] + '" y="' + (p[1] + 0.5) + '" text-anchor="middle" dominant-baseline="middle" class="mb-gnum">' + k.slice(1) + "</text>";
+  });
+  // 今回の乗り場: 番号入りの大きな赤い丸
+  var c = GUIDE_POLES[cur.key];
+  out += '<circle cx="' + c[0] + '" cy="' + c[1] + '" r="14" fill="#e8332a" stroke="#ffffff" stroke-width="3"/>' +
+         '<text x="' + c[0] + '" y="' + (c[1] + 1) + '" text-anchor="middle" dominant-baseline="middle" class="mb-num">' + cur.key.slice(1) + "</text>";
+  if (GUIDE_NOTES[cur.key]) {
+    var nx = Math.min(c[0], GUIDE_W - 40);   // 右端で文字が切れないよう内側に寄せる
+    out += '<text x="' + nx + '" y="' + (c[1] + 28) + '" text-anchor="middle" class="mb-gnote">' + GUIDE_NOTES[cur.key] + "</text>";
+  }
+  return out + "</svg>";
+}
+
+// 吹き出しの中の絵と赤い印を描く。案内図に載っている乗り場なら案内図、そうでなければ道路の形から描いた図
 function renderMapInner() {
   if (!BUBBLE) return;
-  var b = BUBBLE, v = b.v;
+  var b = BUBBLE, v = b.v, $m = $bubble.querySelector(".mb-map");
+  b.key = guideKey(b.name, b.stopId);
+  if (b.key) {
+    var gw = v.w, gh = Math.round(v.w * GUIDE_H / GUIDE_W);
+    $m.style.height = gh + "px";
+    $m.innerHTML = drawGuideMap(b, gw, gh);
+    $bubble.querySelector(".mb-credit").textContent = "";
+    return;
+  }
   var bbox = viewBbox(v), osm = loadOsm(bbox);
   if (!osm && !b.osmFailed && !ROADS) fetchOsm(bbox);
-  $bubble.querySelector(".mb-map").innerHTML = drawSchematic(v, osm, b);
+  $m.innerHTML = drawSchematic(v, osm, b);
 }
 
 function openMapBubble(btn) {
