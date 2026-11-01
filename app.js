@@ -273,7 +273,7 @@ function fetchArrayBuffer(url) {
 /* ===========================================================================
    6. 端末内の保存
    =========================================================================== */
-var APP_VERSION = "24";   // 更新が反映されたかを設定画面で確かめるための番号（index.html の ?v= と揃える）
+var APP_VERSION = "25";   // 更新が反映されたかを設定画面で確かめるための番号（index.html の ?v= と揃える）
 var KEY_TOKEN = "busboard.token";
 // トークンは同じサイト（jlsawo.github.io）のいさバスと共有し、時刻表はアプリごとに分ける
 var KEY_DATA  = BUSBOARD_CONFIG.storageKey || "busboard.timetable";
@@ -362,7 +362,7 @@ function render() {
   var emptyMsg = (fromMode && STATE.data && !STATE.data.retTrips) ? "時刻表を更新すると表示されます"
                : STATE.data ? "この先" + CFG.horizonMin + "分に便がありません"
                : STATE.building ? "時刻表を準備しています…"
-               : !STATE.token ? "⚙ からアクセストークンを設定してください"
+               : !getToken() ? "⚙ からアクセストークンを設定してください"
                : "時刻表データがありません";
 
   var html = "";
@@ -727,7 +727,7 @@ function refresh() {
   if (STATE.inFlight) return;
   if (nowMs - STATE.lastTryMs < CFG.minRefreshMs) return;
   if (STATE.mock) { STATE.lastOkMs = nowMs; render(); return; }
-  if (!STATE.data || !STATE.token) return;
+  if (!STATE.data || !getToken()) return;
   if (document.visibilityState === "hidden") return;   // 裏にいる間は通信しない
 
   STATE.inFlight = true;
@@ -735,7 +735,7 @@ function refresh() {
   $spin.classList.add("on");
   $btn.disabled = true;
 
-  var jobs = feedsFor(STATE.token).map(function (f) {
+  var jobs = feedsFor(getToken()).map(function (f) {
     return fetchArrayBuffer(f.url).then(
       function (buf) { return { key: f.key, feed: decodeFeed(buf) }; },
       function (err) { return { key: f.key, error: err }; }
@@ -865,14 +865,14 @@ function timetableIsOld(d) {
 
 // 失敗しても手元の時刻表はそのまま使い続ける（次回の起動でまた試す）
 function rebuildTimetable() {
-  if (STATE.building || !STATE.token) return Promise.resolve(false);
+  if (STATE.building || !getToken()) return Promise.resolve(false);
   STATE.building = true;
   $log.textContent = "";
   document.getElementById("rebuild").disabled = true;
   document.getElementById("save").disabled = true;
   render();
 
-  return GTFS.build(BUSBOARD_CONFIG, STATE.token, function (t) { logLine(t); }).then(function (data) {
+  return GTFS.build(BUSBOARD_CONFIG, getToken(), function (t) { logLine(t); }).then(function (data) {
     STATE.data = data;
     if (!save(KEY_DATA, JSON.stringify(data))) logLine("※ 時刻表を端末に保存できませんでした（次回また取得します）", true);
     logLine("完了しました。");
@@ -895,13 +895,15 @@ function rebuildTimetable() {
 /* ===========================================================================
    10. 設定パネル
    =========================================================================== */
+function getToken() { return STATE.token; }
+
 function updateTokenState() {
   var t = STATE.token;
   document.getElementById("token-state").textContent = t
     ? "保存済みのトークン: " + t.slice(0, 4) + "…" + t.slice(-4) + "（" + t.length + "文字）"
     : "トークンはまだ保存されていません";
   // トークンが無いうちは「今すぐ更新」を出さない（押しても何もできないため）
-  document.getElementById("rebuild").style.display = t ? "" : "none";
+  document.getElementById("rebuild").style.display = getToken() ? "" : "none";
 }
 
 function openPanel() {
@@ -912,6 +914,21 @@ function openPanel() {
 }
 
 document.getElementById("gear").addEventListener("click", openPanel);
+
+// 管理者モード: 「アプリの版」の行を5回続けてタップすると、のりば検索を出す
+(function () {
+  var taps = 0, timer = null;
+  $ttInfo.addEventListener("click", function () {
+    taps++;
+    clearTimeout(timer);
+    timer = setTimeout(function () { taps = 0; }, 1500);
+    if (taps < 5) return;
+    taps = 0;
+    STATE.admin = !STATE.admin;
+    document.getElementById("admin-tools").hidden = !STATE.admin;
+    updateTokenState();
+  });
+})();
 document.getElementById("close").addEventListener("click", function () {
   $panel.classList.remove("open");
   onWake();
@@ -932,7 +949,7 @@ document.getElementById("save").addEventListener("click", function () {
   rebuildTimetable().then(function (ok) { if (ok) $panel.classList.remove("open"); });
 });
 document.getElementById("rebuild").addEventListener("click", function () {
-  if (!STATE.token) {
+  if (!getToken()) {
     $log.textContent = "";
     logLine("先にトークンを入力して「保存して時刻表を取得」を押してください。", true);
     return;
@@ -944,11 +961,11 @@ var $findOut = document.getElementById("find-out");
 document.getElementById("find").addEventListener("click", function () {
   var q = document.getElementById("find-q").value.trim();
   if (!q) { $findOut.textContent = "停留所名を入力してください。"; return; }
-  if (!STATE.token) { $findOut.textContent = "先にアクセストークンを保存してください。"; return; }
+  if (!getToken()) { $findOut.textContent = "先にアクセストークンを保存してください。"; return; }
   var btn = this;
   btn.disabled = true;
   $findOut.textContent = "";
-  GTFS.findStops(BUSBOARD_CONFIG, STATE.token, q, function (t) { $findOut.textContent += t + "\n"; })
+  GTFS.findStops(BUSBOARD_CONFIG, getToken(), q, function (t) { $findOut.textContent += t + "\n"; })
     .then(function (text) { $findOut.textContent = text || "見つかりませんでした。"; })
     .catch(function (e) { $findOut.textContent += "失敗: " + (e && e.message ? e.message : e); })
     .then(function () { btn.disabled = false; });
@@ -960,7 +977,7 @@ document.getElementById("find").addEventListener("click", function () {
 function onWake() {
   render();     // まず手元の時刻表から即描画（ネットワーク待ちなし）
   refresh();    // 続けて再取得。届いたら数字が差し替わる
-  if (!STATE.mock && STATE.token && timetableIsOld(STATE.data)) rebuildTimetable();
+  if (!STATE.mock && getToken() && timetableIsOld(STATE.data)) rebuildTimetable();
 }
 
 document.addEventListener("visibilitychange", function () {
@@ -1049,7 +1066,7 @@ function mockData() {
   } else {
     STATE.token = load(KEY_TOKEN);
     STATE.data = loadTimetable();
-    if (!STATE.token) openPanel();
+    if (!getToken()) openPanel();
   }
 
   STATE.mode = load(KEY_MODE) === "from" ? "from" : "to";
