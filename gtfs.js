@@ -33,8 +33,9 @@ var GTFS = (function () {
       });
   }
 
+  // token が無いときは中継サーバー（トークンはサーバー側）の URL をそのまま取る
   function fetchZip(url, token) {
-    return fetchWithTimeout(addToken(url, token), 180000).then(function (res) {
+    return fetchWithTimeout(token ? addToken(url, token) : url, 180000).then(function (res) {
       if (res.status === 401 || res.status === 403) throw new Error("HTTP " + res.status + "（アクセストークンが正しいか確認してください）");
       if (!res.ok) throw new Error("HTTP " + res.status);
       return res.arrayBuffer();
@@ -203,6 +204,12 @@ var GTFS = (function () {
   }
 
   /* ---------- 関東バスの最新版 date を CKAN から調べる ---------- */
+  // 時刻表の取得先: 自分のトークンがあれば ODPT から直接、無ければ中継サーバーから
+  function gtfsSource(cfg, opKey, op, token, log) {
+    if (!token && cfg.proxy) return Promise.resolve(cfg.proxy + "/gtfs/" + opKey);
+    return resolveGtfsUrl(op, log);
+  }
+
   function resolveGtfsUrl(op, log) {
     if (op.gtfsUrl) return Promise.resolve(op.gtfsUrl);
     return fetchWithTimeout(op.ckanApi, 20000).then(function (res) {
@@ -273,7 +280,7 @@ var GTFS = (function () {
         var cal = [], calDates = [];
 
         log(op.label + "バス: 時刻表をダウンロード中…");
-        return resolveGtfsUrl(op, log).then(function (url) {
+        return gtfsSource(cfg, opKey, op, token, log).then(function (url) {
           return fetchZip(url, token);
         }).then(function (b) {
           buf = b;
@@ -481,7 +488,7 @@ var GTFS = (function () {
         var op = cfg.operators[opKey];
         var buf, entries, cand = {}, order = [], tripStops = {}, routeName = {};
         log(op.label + "バス: 「" + query + "」を検索中…");
-        return resolveGtfsUrl(op, log).then(function (url) { return fetchZip(url, token); }).then(function (b) {
+        return gtfsSource(cfg, opKey, op, token, log).then(function (url) { return fetchZip(url, token); }).then(function (b) {
           buf = b; entries = readZipEntries(buf);
           return forEachRow(buf, entries, "stops.txt", function (v, ix) {
             var name = col(v, ix, "stop_name");

@@ -12,6 +12,11 @@
    端末の中（localStorage）にだけ保存します。
    =========================================================================== */
 var BUSBOARD_CONFIG = {
+  // 中継サーバー（proxy/worker.js を Cloudflare Workers に置いたもの）の URL。
+  // 設定すると、トークンを入力しなくても使える（トークンはサーバーの中にだけある）。
+  // 空のときは、各自のトークンで ODPT から直接取得する。
+  proxy: "",
+
   storageKey: "busboard.hacchou.timetable",   // 時刻表の保存先（いさバスとは別にする）
   maxItems:   7,       // 表示件数
   horizonMin: 120,     // 何分先までを対象にするか

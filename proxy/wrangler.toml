@@ -1,0 +1,5 @@
+# いさバス 中継サーバーの設定（Cloudflare Workers）。設置は .github/workflows/proxy.yml が行う。
+name = "isabus-proxy"
+main = "worker.js"
+compatibility_date = "2026-10-01"
+workers_dev = true
