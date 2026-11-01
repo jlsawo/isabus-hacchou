@@ -257,12 +257,20 @@ footer { padding-bottom: calc(1.2vmin + env(safe-area-inset-bottom, 0px)); }
 }
 #panel.open { display: flex; }
 #panel h2 { font-size: 19px; }
-#panel p  { color: var(--dim); font-size: 13px; }
-#panel label { font-size: 14px; color: var(--dim); }
+#panel p  { color: #aeb6c0; font-size: 14px; }
+#panel label { font-size: 16px; font-weight: 700; color: var(--fg); }
+/* トークンの説明（見落とさないよう、明るい枠で） */
+#token-help { background: #1b2430; border: 1px solid #3a4a5e; border-radius: 10px; padding: 12px 14px; }
+#panel #token-help p { color: var(--fg); font-size: 16px; line-height: 1.7; }
+#token-help b { color: #9fd0ff; }
+#panel #token-help .th-ask { margin-top: 6px; font-weight: 700; color: var(--soon); }
+/* 入力欄は白地に黒い文字で、黒い背景の中でも場所がひと目でわかるように */
 #token {
-  width: 100%; font: inherit; font-size: 16px; color: var(--fg);
-  background: var(--row); border: 1px solid #2c3644; border-radius: 8px; padding: 10px 12px;
+  width: 100%; font: inherit; font-size: 17px; color: #10151b;
+  background: #f4f6f8; border: 2px solid #9fd0ff; border-radius: 10px; padding: 12px 14px;
 }
+#token::placeholder { color: #7a8491; }
+#token:focus { outline: none; border-color: #ffd24a; box-shadow: 0 0 0 3px rgba(255, 210, 74, .35); }
 .btns { display: flex; flex-wrap: wrap; gap: 10px; }
 .btns button {
   font: inherit; font-size: 15px; font-weight: 700; color: var(--fg);
@@ -280,9 +288,10 @@ footer { padding-bottom: calc(1.2vmin + env(safe-area-inset-bottom, 0px)); }
 }
 #diag:empty { display: none; }
 #find-q {
-  flex: 1 1 10em; min-width: 0; font: inherit; font-size: 16px; color: var(--fg);
-  background: var(--row); border: 1px solid #2c3644; border-radius: 8px; padding: 10px 12px;
+  flex: 1 1 10em; min-width: 0; font: inherit; font-size: 16px; color: #10151b;
+  background: #f4f6f8; border: 2px solid #9fd0ff; border-radius: 10px; padding: 10px 12px;
 }
+#find-q::placeholder { color: #7a8491; }
 #find-out {
   white-space: pre-wrap; word-break: break-all;
   font-size: 12px; line-height: 1.5; color: #c3cad3;
