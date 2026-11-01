@@ -273,7 +273,7 @@ function fetchArrayBuffer(url) {
 /* ===========================================================================
    6. 端末内の保存
    =========================================================================== */
-var APP_VERSION = "22";   // 更新が反映されたかを設定画面で確かめるための番号（index.html の ?v= と揃える）
+var APP_VERSION = "23";   // 更新が反映されたかを設定画面で確かめるための番号（index.html の ?v= と揃える）
 var KEY_TOKEN = "busboard.token";
 // トークンは同じサイト（jlsawo.github.io）のいさバスと共有し、時刻表はアプリごとに分ける
 var KEY_DATA  = BUSBOARD_CONFIG.storageKey || "busboard.timetable";
@@ -362,7 +362,7 @@ function render() {
   var emptyMsg = (fromMode && STATE.data && !STATE.data.retTrips) ? "時刻表を更新すると表示されます"
                : STATE.data ? "この先" + CFG.horizonMin + "分に便がありません"
                : STATE.building ? "時刻表を準備しています…"
-               : !STATE.token ? "右下の ⚙ を押して、はじめての設定をしてください"
+               : !STATE.token ? "⚙ からアクセストークンを設定してください"
                : "時刻表データがありません";
 
   var html = "";
@@ -902,8 +902,6 @@ function updateTokenState() {
     : "トークンはまだ保存されていません";
   // トークンが無いうちは「今すぐ更新」を出さない（押しても何もできないため）
   document.getElementById("rebuild").style.display = t ? "" : "none";
-  // はじめての方への案内は、トークンを入れるまで表示する
-  document.getElementById("first-guide").style.display = t ? "none" : "";
 }
 
 function openPanel() {
