@@ -273,7 +273,7 @@ function fetchArrayBuffer(url) {
 /* ===========================================================================
    6. 端末内の保存
    =========================================================================== */
-var APP_VERSION = "26";   // 更新が反映されたかを設定画面で確かめるための番号（index.html の ?v= と揃える）
+var APP_VERSION = "27";   // 更新が反映されたかを設定画面で確かめるための番号（index.html の ?v= と揃える）
 var KEY_TOKEN = "busboard.token";
 // トークンは同じサイト（jlsawo.github.io）のいさバスと共有し、時刻表はアプリごとに分ける
 var KEY_DATA  = BUSBOARD_CONFIG.storageKey || "busboard.timetable";
@@ -571,7 +571,15 @@ function fetchOsm(bbox) {
 }
 
 // 乗り場の絵（SVG）。道路は白、縁取りと線路は灰色、のりばは灰色の点
-function drawSchematic(v, osm, curId) {
+// 乗り場の番号: 番線（platform_code）が名前に入っていればそれ、無ければ stop_id の末尾の数字
+function poleNumber(name, id) {
+  var m = /(\d+)番/.exec(name || "") || /[-_](\d+)$/.exec(id || "");
+  return m ? String(parseInt(m[1], 10)) : "";
+}
+
+// 乗り場の絵（SVG）。バス乗り場の案内図のように、紺の地に白い道、白い駅、
+// 今回の乗り場だけを番号入りの赤い丸で示す。ほかの乗り場は目立たない小さな点
+function drawSchematic(v, osm, cur) {
   var s = Math.pow(2, v.z - 17);   // 線の太さは ズーム17 を基準にする
   function xy(lat, lon) { var p = worldPx(lat, lon, v.z); return [p.x - v.left, p.y - v.top]; }
   function path(g) { return g.map(function (p, i) { var q = xy(p[0], p[1]); return (i ? "L" : "M") + q[0].toFixed(1) + " " + q[1].toFixed(1); }).join(""); }
@@ -582,22 +590,29 @@ function drawSchematic(v, osm, curId) {
   function of(k) { return ways.filter(function (w) { return w.k === k; }); }
 
   var out = '<svg class="mb-svg" viewBox="0 0 ' + v.w + " " + v.h + '" width="' + v.w + '" height="' + v.h + '">' +
-            '<rect width="100%" height="100%" fill="#eceef1"/>';
-  of("bus").forEach(function (w) { out += '<path d="' + path(w.g) + 'Z" fill="#dfe4ea"/>'; });
+            '<rect width="100%" height="100%" fill="#2f3b52"/>';
+  // バスターミナル（ロータリーの広場）は白っぽく塗る
+  of("bus").forEach(function (w) { out += '<path d="' + path(w.g) + 'Z" fill="#e9edf2"/>'; });
 
-  var widths = { minor: 4.5, mid: 7, major: 10 };
-  ["minor", "mid", "major"].forEach(function (k) {      // 縁取りを先に、白い道を後に
-    var wd = Math.max(2, widths[k] * s);
-    of(k).forEach(function (w) { out += '<path d="' + path(w.g) + '" fill="none" stroke="#bcc4cd" stroke-width="' + (wd + 2) + '" stroke-linecap="round" stroke-linejoin="round"/>'; });
-  });
+  var widths = { minor: 6, mid: 9, major: 14 };
   ["minor", "mid", "major"].forEach(function (k) {
-    var wd = Math.max(2, widths[k] * s);
+    var wd = Math.max(2.5, widths[k] * s);
     of(k).forEach(function (w) { out += '<path d="' + path(w.g) + '" fill="none" stroke="#ffffff" stroke-width="' + wd + '" stroke-linecap="round" stroke-linejoin="round"/>'; });
   });
-  // 線路は何本も並ぶので、細く淡い1本線にして目立たせない
-  of("rail").forEach(function (w) {
-    out += '<path d="' + path(w.g) + '" fill="none" stroke="#b4bbc4" stroke-width="' + Math.max(1, 1.6 * s) + '"/>';
-  });
+  // 線路は何本も並ぶので、まとめて1本の白黒の帯にする（画面の中の線路の点に直線を当てはめる）
+  var rp = [];
+  of("rail").forEach(function (w) { w.g.forEach(function (p) { var q = xy(p[0], p[1]); if (q[0] >= -20 && q[0] <= v.w + 20 && q[1] >= -20 && q[1] <= v.h + 20) rp.push(q); }); });
+  if (rp.length >= 2) {
+    var mx = 0, my = 0;
+    rp.forEach(function (q) { mx += q[0]; my += q[1]; }); mx /= rp.length; my /= rp.length;
+    var sxx = 0, sxy = 0;
+    rp.forEach(function (q) { sxx += (q[0] - mx) * (q[0] - mx); sxy += (q[0] - mx) * (q[1] - my); });
+    var k = sxx ? sxy / sxx : 0;   // 傾き
+    var y0 = my - k * mx, y1 = my + k * (v.w - mx), bw = Math.max(7, 10 * s);
+    var band = "M0 " + y0.toFixed(1) + "L" + v.w + " " + y1.toFixed(1);
+    out += '<path d="' + band + '" stroke="#11161f" stroke-width="' + (bw + 2) + '"/>' +
+           '<path d="' + band + '" stroke="#ffffff" stroke-width="' + bw + '" stroke-dasharray="' + (14 * s) + " " + (14 * s) + '"/>';
+  }
 
   // 文字は「青梅街道」と「荻窪駅」だけ
   var label = function (x, y, text, rot) {
@@ -613,7 +628,7 @@ function drawSchematic(v, osm, curId) {
       for (var t = 0; t <= len; t += 8) {
         var x = a0[0] + (a1[0] - a0[0]) * t / len, y = a0[1] + (a1[1] - a0[1]) * t / len;
         if (x < 40 || x > v.w - 40 || y < -10 || y > v.h + 10) continue;
-        var d = Math.abs(x - v.w * 0.6);   // 真ん中より少し右（荻窪駅の文字と重なりにくい）
+        var d = Math.abs(x - v.w * 0.4);   // 真ん中より少し左（右上のコンパスと重なりにくい）
         if (!best || d < best.d) best = { d: d, x: x, y: y, ang: Math.atan2(a1[1] - a0[1], a1[0] - a0[0]) * 180 / Math.PI };
       }
     }
@@ -624,7 +639,7 @@ function drawSchematic(v, osm, curId) {
     // 道が端ぎりぎりにあるときは、文字が切れないよう少し内側に寄せる
     out += label(best.x, Math.max(10, Math.min(v.h - 10, best.y)), "青梅街道", ang);
   }
-  // 駅は四角で描く（線路に沿って東西に長い）。大きさは config.js の landmark.size（メートル）
+  // 駅は白い四角で描く（線路に沿って東西に長い）。大きさは config.js の landmark.size（メートル）
   var lm = BUSBOARD_CONFIG.returnMode && BUSBOARD_CONFIG.returnMode.landmark;
   if (lm) {
     var lp = xy(lm.lat, lm.lon);
@@ -632,17 +647,22 @@ function drawSchematic(v, osm, curId) {
     // 縮尺が小さくなっても建物とわかるよう、最小 70×20px にする
     var sw = Math.max(70, (lm.size ? lm.size[0] : 90) * pxPerM), sh = Math.max(20, (lm.size ? lm.size[1] : 28) * pxPerM);
     out += '<rect x="' + (lp[0] - sw / 2).toFixed(1) + '" y="' + (lp[1] - sh / 2).toFixed(1) + '" width="' + sw.toFixed(1) + '" height="' + sh.toFixed(1) +
-           '" rx="3" fill="#6b7480" stroke="#4b5563" stroke-width="1"/>' +
+           '" fill="#ffffff" stroke="#11161f" stroke-width="1"/>' +
            '<text x="' + lp[0].toFixed(1) + '" y="' + lp[1].toFixed(1) + '" text-anchor="middle" dominant-baseline="middle" class="mb-station">' + esc(lm.name) + "</text>";
   }
 
-  // 荻窪駅のすべてののりばを点で（押した便の乗り場は、この上に赤い印を重ねる）
+  // ほかの乗り場は、目立たない小さな点
   ((STATE.data && STATE.data.poles) || []).forEach(function (p) {
-    if (p.id === curId) return;
+    if (p.id === cur.stopId) return;
     var q = xy(parseFloat(p.lat), parseFloat(p.lon));
     if (q[0] < 0 || q[0] > v.w || q[1] < 0 || q[1] > v.h) return;
-    out += '<circle cx="' + q[0].toFixed(1) + '" cy="' + q[1].toFixed(1) + '" r="4" fill="#8a949f" stroke="#fff" stroke-width="1.5"/>';
+    out += '<circle cx="' + q[0].toFixed(1) + '" cy="' + q[1].toFixed(1) + '" r="3" fill="#8794a8"/>';
   });
+
+  // 今回の乗り場: 番号入りの赤い丸
+  var cp = xy(cur.lat, cur.lon), num = poleNumber(cur.name, cur.stopId);
+  out += '<circle cx="' + cp[0].toFixed(1) + '" cy="' + cp[1].toFixed(1) + '" r="11" fill="#e8332a" stroke="#ffffff" stroke-width="2"/>' +
+         (num ? '<text x="' + cp[0].toFixed(1) + '" y="' + (cp[1] + 0.5).toFixed(1) + '" text-anchor="middle" dominant-baseline="middle" class="mb-num">' + esc(num) + "</text>" : "");
 
   // コンパス（地図はいつも北が上）
   var cx = v.w - 22, cy = 34;   // 上の「N」が切れない位置
@@ -665,9 +685,7 @@ function renderMapInner() {
   var b = BUBBLE, v = b.v;
   var bbox = viewBbox(v), osm = loadOsm(bbox);
   if (!osm && !b.osmFailed && !ROADS) fetchOsm(bbox);
-  var pin = worldPx(b.lat, b.lon, v.z);
-  $bubble.querySelector(".mb-map").innerHTML = drawSchematic(v, osm, b.stopId) +
-    '<span class="mb-pin" aria-hidden="true" style="left:' + Math.round(pin.x - v.left) + "px;top:" + Math.round(pin.y - v.top) + 'px"></span>';
+  $bubble.querySelector(".mb-map").innerHTML = drawSchematic(v, osm, b);
 }
 
 function openMapBubble(btn) {
@@ -675,7 +693,7 @@ function openMapBubble(btn) {
   if (isNaN(lat) || isNaN(lon)) return;
 
   var w = Math.min(320, window.innerWidth - 24), h = Math.round(w * 0.8);   // 縦にも余裕を持たせ、ロータリーが大きく見える縮尺に
-  BUBBLE = { v: mapView(w, h), lat: lat, lon: lon, stopId: btn.getAttribute("data-stop") };
+  BUBBLE = { v: mapView(w, h), lat: lat, lon: lon, stopId: btn.getAttribute("data-stop"), name: btn.getAttribute("data-name") };
 
   $bubble.innerHTML =
     '<div class="mb-head"><span class="mb-title">' + esc(btn.getAttribute("data-name")) + "</span>" +

@@ -5,7 +5,7 @@
    一切保存せず、そのまま通す。本体は「まずネットから、だめなら保存分」で読むので、
    GitHub に更新を上げれば次に開いたときに反映される。
    =========================================================================== */
-var CACHE = "isabus-hacchou-v26";
+var CACHE = "isabus-hacchou-v27";
 var FILES = [
   "./", "index.html", "config.js", "style.css", "app.js", "gtfs.js",
   "roads.json", "manifest.webmanifest", "icons/icon.svg", "icons/icon-192.png", "icons/icon-512.png"
