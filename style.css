@@ -148,7 +148,7 @@ body.stale .row .mins { color: var(--stale) !important; }
   flex: 0 0 auto; font: inherit; line-height: 1;
   font-size: clamp(12px, 2.2vmin, 20px);
   background: none; border: 0; padding: .2em .25em;
-  filter: grayscale(1); opacity: .5;   /* 控えめに。色を落として薄く */
+  filter: grayscale(1) brightness(2.2); opacity: .8;   /* 色を落とし、暗い背景で見えるよう白っぽく */
 }
 .map:active { opacity: .9; }
 
