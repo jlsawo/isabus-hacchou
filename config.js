@@ -15,7 +15,7 @@ var BUSBOARD_CONFIG = {
   // 中継サーバー（proxy/worker.js を Cloudflare Workers に置いたもの）の URL。
   // 設定すると、トークンを入力しなくても使える（トークンはサーバーの中にだけある）。
   // 空のときは、各自のトークンで ODPT から直接取得する。
-  proxy: "",
+  proxy: "https://isabus-proxy.jlsawo.workers.dev",
 
   storageKey: "busboard.hacchou.timetable",   // 時刻表の保存先（いさバスとは別にする）
   maxItems:   7,       // 表示件数
