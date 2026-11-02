@@ -172,12 +172,10 @@ body.stale .row .mins { color: var(--stale) !important; }
   paint-order: stroke; stroke: #fff; stroke-width: 3px; stroke-linejoin: round;
 }
 .mb-num { font-size: 13px; font-weight: 800; fill: #fff; }
-/* 荻窪駅のバス乗り場の案内図 */
-.mb-gtext  { font-size: 13px; font-weight: 700; fill: #ffffff; }
-.mb-gsmall { font-size: 9px; font-weight: 700; fill: #1f2937; }
-.mb-gnum   { font-size: 9px; font-weight: 700; fill: #c3cad3; }
-.mb-gnote  { font-size: 11px; font-weight: 700; fill: #ffffff; paint-order: stroke; stroke: #2f3b52; stroke-width: 4px; stroke-linejoin: round; }
-.mb-svg .mb-num { font-size: 16px; }
+/* 荻窪駅北口のバス乗り場の案内図（白地にグレーの道） */
+.mb-gnum  { font-size: 9px; font-weight: 700; fill: #ffffff; }
+.mb-gcur  { font-size: 13px; font-weight: 800; fill: #ffffff; }
+.mb-gnote { font-size: 10px; font-weight: 700; fill: #4b5563; paint-order: stroke; stroke: #ffffff; stroke-width: 3px; stroke-linejoin: round; }
 .mb-status { font-size: 11px; fill: #c3cad3; }
 .mb-station { font-size: 13px; font-weight: 700; fill: #1f2937; }
 .mb-north { font-size: 10px; font-weight: 700; fill: #4b5563; paint-order: stroke; stroke: #eceef1; stroke-width: 3px; }

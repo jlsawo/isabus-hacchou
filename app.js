@@ -273,7 +273,7 @@ function fetchArrayBuffer(url) {
 /* ===========================================================================
    6. 端末内の保存
    =========================================================================== */
-var APP_VERSION = "30";   // 更新が反映されたかを設定画面で確かめるための番号（index.html の ?v= と揃える）
+var APP_VERSION = "31";   // 更新が反映されたかを設定画面で確かめるための番号（index.html の ?v= と揃える）
 var KEY_TOKEN = "busboard.token";
 // トークンは同じサイト（jlsawo.github.io）のいさバスと共有し、時刻表はアプリごとに分ける
 var KEY_DATA  = BUSBOARD_CONFIG.storageKey || "busboard.timetable";
@@ -679,68 +679,44 @@ function drawSchematic(v, osm, cur) {
   return out + "</svg>";
 }
 
-/* ---- 荻窪駅のバス乗り場の案内図（手描き） ----
-   バス会社の案内図と同じ配置で描く。座標は 465×273 の図の上の位置。
-   乗り場は「北口／南口」と番号で置く（番号は poleNumber、合わないときは config.js の returnMode.poleNumbers で直す）。 */
-var GUIDE_W = 465, GUIDE_H = 273;
+/* ---- 荻窪駅北口のバス乗り場の案内図（手描き） ----
+   JR荻窪駅北口駅前広場バスのりば案内図・タウンセブンの案内図などを参考に描いたもの（480×310）。
+   乗り場は番号で置く（番号は poleNumber、合わないときは config.js の returnMode.poleNumbers で直す）。
+   今回の乗り場は番号入りの赤い丸、ほかはグレーの丸。 */
+var GUIDE_W = 480, GUIDE_H = 310;
+var GUIDE_BASE = "<g font-family=\"'Noto Sans CJK JP','Noto Sans JP',sans-serif\"><rect width=\"480\" height=\"310\" fill=\"#ffffff\"/>\n  <g stroke=\"#d9dde3\" fill=\"none\" stroke-linejoin=\"round\">\n    <!-- 北へ延びる道 -->\n    <path d=\"M248 0 L236 118\" stroke-width=\"9\"/>\n    <path d=\"M352 0 L340 150\" stroke-width=\"9\"/>\n    <!-- 西口へ下りる道（2本） -->\n    <path d=\"M246 132 L204 192 L196 214 L120 226 L0 240\" stroke-width=\"12\"/>\n    <path d=\"M206 268 L206 212\" stroke-width=\"8\"/>\n    <!-- 青梅街道 -->\n    <path d=\"M0 36 L212 120 L304 152 L480 152\" stroke-width=\"22\"/>\n    <!-- ロータリーへの道 -->\n    <path d=\"M312 156 L312 186\" stroke-width=\"12\"/>\n  </g>\n  <!-- ロータリー -->\n  <rect x=\"300\" y=\"180\" width=\"104\" height=\"80\" rx=\"16\" fill=\"#d9dde3\"/>\n  <path d=\"M326 198 H382 A10 10 0 0 1 392 208 V226 A10 10 0 0 1 382 236 H326 A6 6 0 0 1 326 224 H360 A3 3 0 0 0 360 218 V216 A3 3 0 0 0 360 210 H326 A6 6 0 0 1 326 198 Z\" fill=\"#ffffff\" stroke=\"#c9ced6\"/>\n  <!-- タクシー乗り場 -->\n  <rect x=\"315\" y=\"245\" width=\"14\" height=\"10\" rx=\"2\" fill=\"#f5c542\" stroke=\"#c9a227\"/>\n  <text x=\"322\" y=\"253\" text-anchor=\"middle\" font-size=\"6.5\" font-weight=\"700\" fill=\"#1f2937\">T</text>\n  <text x=\"302\" y=\"266.5\" font-size=\"7\" fill=\"#6b7280\">タクシー乗り場</text>\n  <!-- タウンセブン: 北へとがった五角形。左上の辺は西口への道、右上の辺は駐車場出口の道に面する -->\n  <path d=\"M216 194 L262 158 L300 174 L298 244 L216 244 Z\" fill=\"#f1f3f6\" stroke=\"#c9ced6\"/>\n  <text x=\"258\" y=\"210\" text-anchor=\"middle\" font-size=\"9\" fill=\"#6b7280\">タウンセブン</text>\n  <!-- ルミネ: タウンセブンのすぐ下、駅と一体の横長の建物（右端の先が北口） -->\n  <rect x=\"214\" y=\"248\" width=\"86\" height=\"18\" fill=\"#f1f3f6\" stroke=\"#c9ced6\"/>\n  <text x=\"257\" y=\"260\" text-anchor=\"middle\" font-size=\"9\" fill=\"#6b7280\">ルミネ</text>\n  <!-- マクドナルド（西口からの道の途中、左側） -->\n  <rect x=\"186\" y=\"241\" width=\"13\" height=\"11\" fill=\"#f1f3f6\" stroke=\"#c9ced6\"/>\n  <text x=\"182\" y=\"249.5\" text-anchor=\"end\" font-size=\"7.5\" fill=\"#6b7280\">マクドナルド</text>\n  <!-- 駅（線路の帯） -->\n  <path d=\"M0 284 L480 284\" stroke=\"#9aa3ad\" stroke-width=\"10\"/>\n  <path d=\"M0 284 L480 284\" stroke=\"#ffffff\" stroke-width=\"7\" stroke-dasharray=\"14 14\"/>\n  <rect x=\"196\" y=\"268\" width=\"156\" height=\"32\" fill=\"#8a929c\"/>\n  <text x=\"270\" y=\"290\" text-anchor=\"middle\" font-size=\"15\" font-weight=\"700\" fill=\"#ffffff\">荻窪駅</text>\n  <text x=\"210\" y=\"279\" text-anchor=\"middle\" font-size=\"8\" font-weight=\"700\" fill=\"#ffffff\">西口</text>\n  <text x=\"334\" y=\"279\" text-anchor=\"middle\" font-size=\"8\" font-weight=\"700\" fill=\"#ffffff\">北口</text>\n  <!-- 信号 -->\n  <g><rect x=\"232\" y=\"123.5\" width=\"24\" height=\"9\" rx=\"4.5\" fill=\"#4b5563\"/><circle cx=\"237\" cy=\"128\" r=\"2.6\" fill=\"#22c55e\"/><circle cx=\"244\" cy=\"128\" r=\"2.6\" fill=\"#facc15\"/><circle cx=\"251\" cy=\"128\" r=\"2.6\" fill=\"#ef4444\"/></g>\n  <g><rect x=\"300\" y=\"141.5\" width=\"24\" height=\"9\" rx=\"4.5\" fill=\"#4b5563\"/><circle cx=\"305\" cy=\"146\" r=\"2.6\" fill=\"#22c55e\"/><circle cx=\"312\" cy=\"146\" r=\"2.6\" fill=\"#facc15\"/><circle cx=\"319\" cy=\"146\" r=\"2.6\" fill=\"#ef4444\"/></g>\n  <!-- 文字 -->\n  <text x=\"372\" y=\"156.5\" text-anchor=\"middle\" font-size=\"13\" font-weight=\"700\" fill=\"#6b7280\">青梅街道</text>\n  <text x=\"4\" y=\"138\" font-size=\"9\" fill=\"#9aa3ad\">至 吉祥寺</text>\n  <text x=\"120\" y=\"244\" text-anchor=\"middle\" font-size=\"9\" fill=\"#9aa3ad\" transform=\"rotate(-9 120 244)\">白山通り</text>\n  <text x=\"474\" y=\"192\" text-anchor=\"end\" font-size=\"9\" fill=\"#9aa3ad\">至 新宿</text>\n  <!-- 建物（お店）: 実寸に近い小さな四角。店名は外に -->\n  <g transform=\"rotate(21.6 70.0 104.6)\"><rect x=\"62.0\" y=\"98.6\" width=\"16\" height=\"12\" fill=\"#f1f3f6\" stroke=\"#c9ced6\"/></g><text x=\"65.2\" y=\"119.2\" text-anchor=\"middle\" font-size=\"7.5\" fill=\"#6b7280\" transform=\"rotate(21.6 65.2 116.7)\">ソフトバンク</text>\n  <g transform=\"rotate(21.6 130.0 128.4)\"><rect x=\"121.0\" y=\"122.4\" width=\"18\" height=\"12\" fill=\"#f1f3f6\" stroke=\"#c9ced6\"/></g><text x=\"125.2\" y=\"143.0\" text-anchor=\"middle\" font-size=\"7.5\" fill=\"#6b7280\" transform=\"rotate(21.6 125.2 140.5)\">三井住友銀行</text>\n  <g transform=\"rotate(21.6 176.0 146.6)\"><rect x=\"169.0\" y=\"140.6\" width=\"14\" height=\"12\" fill=\"#f1f3f6\" stroke=\"#c9ced6\"/></g><text x=\"171.2\" y=\"161.2\" text-anchor=\"middle\" font-size=\"7.5\" fill=\"#6b7280\" transform=\"rotate(21.6 171.2 158.7)\">サンドラッグ</text>\n  <g transform=\"rotate(21.6 208.0 159.3)\"><rect x=\"203.0\" y=\"154.3\" width=\"10\" height=\"10\" fill=\"#f1f3f6\" stroke=\"#c9ced6\"/></g><text x=\"203.2\" y=\"173.8\" text-anchor=\"middle\" font-size=\"7.5\" fill=\"#6b7280\" transform=\"rotate(21.6 203.2 171.3)\">ドトール</text>\n  <g transform=\"rotate(21.6 95.0 41.4)\"><rect x=\"86.0\" y=\"35.4\" width=\"18\" height=\"12\" fill=\"#f1f3f6\" stroke=\"#c9ced6\"/></g><text x=\"99.8\" y=\"30.4\" text-anchor=\"middle\" font-size=\"7.5\" fill=\"#6b7280\" transform=\"rotate(21.6 99.8 30.4)\">りそな銀行</text>\n  <rect x=\"378\" y=\"104\" width=\"32\" height=\"24\" fill=\"#f1f3f6\" stroke=\"#c9ced6\"/><text x=\"394\" y=\"98\" text-anchor=\"middle\" font-size=\"7.5\" fill=\"#6b7280\">ドン・キホーテ</text>\n  <rect x=\"252\" y=\"106\" width=\"16\" height=\"12\" fill=\"#f1f3f6\" stroke=\"#c9ced6\"/><text x=\"260\" y=\"88\" text-anchor=\"middle\" font-size=\"7.5\" fill=\"#6b7280\">お菓子の</text><text x=\"260\" y=\"98\" text-anchor=\"middle\" font-size=\"7.5\" fill=\"#6b7280\">まちおか</text>\n  <!-- コンパス -->\n  <circle cx=\"456\" cy=\"30\" r=\"13\" fill=\"#ffffff\" stroke=\"#c9ced6\"/>\n  <path d=\"M456 21 L461 33 L456 31 L451 33 Z\" fill=\"#e8332a\"/><path d=\"M456 41 L461 33 L456 31 L451 33 Z\" fill=\"#9aa3ad\"/></g>";
 var GUIDE_POLES = {
-  N0: [314, 142], N1: [345, 142], N2: [367, 110], N3: [343, 82], N4: [298, 123],
-  N5: [22, 42], N6: [70, 60], N8: [402, 76], N9: [410, 22],
-  S1: [235, 236], S2: [190, 236], S3: [146, 236], S4: [100, 236]
+  N0: [344, 252], N1: [374, 252], N2: [398, 236], N3: [374, 186], N4: [300, 208],
+  N5: [77, 86.9], N6: [137, 110.7], N7: [200, 135.6], N8: [420, 172], N9: [446, 132]
 };
 var GUIDE_NOTES = { N8: "（午前のみ）", N9: "（午後のみ）" };
 
-// 乗り場 → 案内図の上の場所の名前（例: "N3"）。分からなければ ""
+// 乗り場 → 案内図の上の場所の名前（例: "N3"）。分からなければ ""（そのときは道路の形から描いた図）
 function guideKey(name, id) {
   var o = (BUSBOARD_CONFIG.returnMode && BUSBOARD_CONFIG.returnMode.poleNumbers) || {};
   if (o[id]) return o[id];
   var num = poleNumber(name, id);
-  if (!num) return "";
-  var key = (/南口/.test(name || "") ? "S" : "N") + num;
+  if (!num || /南口/.test(name || "")) return "";
+  var key = "N" + num;
   return GUIDE_POLES[key] ? key : "";
 }
 
 function drawGuideMap(cur, w, h) {
-  var road = 'fill="none" stroke="#ffffff" stroke-linecap="butt" stroke-linejoin="round"';
-  var out = '<svg class="mb-svg" viewBox="0 0 ' + GUIDE_W + " " + GUIDE_H + '" width="' + w + '" height="' + h + '">' +
-    '<rect width="100%" height="100%" fill="#2f3b52"/>' +
-    // 道路: 青梅街道、左の通り、ロータリーへ下りる道、東へ延びる道、北東の道
-    '<path d="M0 30 L95 50 L300 50" ' + road + ' stroke-width="18"/>' +
-    '<path d="M300 50 L465 50" ' + road + ' stroke-width="12"/>' +
-    '<path d="M55 50 L55 186" ' + road + ' stroke-width="12"/>' +
-    '<path d="M215 50 L285 98" ' + road + ' stroke-width="14"/>' +
-    '<path d="M380 128 L465 128" ' + road + ' stroke-width="14"/>' +
-    '<path d="M330 62 L380 38 L465 38" ' + road + ' stroke-width="10"/>' +
-    // ロータリーの広場
-    '<path d="M268 92 L330 62 L384 62 L384 156 L268 156 Z" fill="#ffffff"/>' +
-    // 荻窪タウンセブン
-    '<rect x="92" y="66" width="108" height="86" fill="#6b7685"/>' +
-    '<text x="146" y="104" text-anchor="middle" class="mb-gtext">荻窪タウン</text>' +
-    '<text x="146" y="122" text-anchor="middle" class="mb-gtext">セブン</text>' +
-    // 線路（白黒の帯）と駅
-    '<path d="M0 199 L465 199" stroke="#11161f" stroke-width="12"/>' +
-    '<path d="M0 199 L465 199" stroke="#ffffff" stroke-width="10" stroke-dasharray="14 14"/>' +
-    '<rect x="80" y="186" width="200" height="26" fill="#ffffff" stroke="#11161f" stroke-width="1"/>' +
-    '<text x="180" y="200" text-anchor="middle" dominant-baseline="middle" class="mb-station">荻窪駅</text>' +
-    '<rect x="288" y="182" width="30" height="34" fill="#ffffff" stroke="#11161f" stroke-width="1"/>' +
-    '<text x="303" y="193" text-anchor="middle" dominant-baseline="middle" class="mb-gsmall">北口</text>' +
-    '<text x="303" y="206" text-anchor="middle" dominant-baseline="middle" class="mb-gsmall">南口</text>' +
-    '<text x="150" y="38" text-anchor="middle" class="mb-label">青梅街道</text>';
-
-  // ほかの乗り場: 目立たない灰色の小さな丸と番号
+  var out = '<svg class="mb-svg" viewBox="0 0 ' + GUIDE_W + " " + GUIDE_H + '" width="' + w + '" height="' + h + '">' + GUIDE_BASE;
+  // ほかの乗り場: グレーの丸と番号
   Object.keys(GUIDE_POLES).forEach(function (k) {
     if (k === cur.key) return;
     var p = GUIDE_POLES[k];
-    out += '<circle cx="' + p[0] + '" cy="' + p[1] + '" r="7" fill="#556178"/>' +
-           '<text x="' + p[0] + '" y="' + (p[1] + 0.5) + '" text-anchor="middle" dominant-baseline="middle" class="mb-gnum">' + k.slice(1) + "</text>";
+    out += '<circle cx="' + p[0] + '" cy="' + p[1] + '" r="7" fill="#8a94a3"/>' +
+           '<text x="' + p[0] + '" y="' + (p[1] + 3) + '" text-anchor="middle" class="mb-gnum">' + k.slice(1) + "</text>";
   });
-  // 今回の乗り場: 番号入りの大きな赤い丸
+  // 今回の乗り場: 番号入りの赤い丸
   var c = GUIDE_POLES[cur.key];
-  out += '<circle cx="' + c[0] + '" cy="' + c[1] + '" r="14" fill="#e8332a" stroke="#ffffff" stroke-width="3"/>' +
-         '<text x="' + c[0] + '" y="' + (c[1] + 1) + '" text-anchor="middle" dominant-baseline="middle" class="mb-num">' + cur.key.slice(1) + "</text>";
+  out += '<circle cx="' + c[0] + '" cy="' + c[1] + '" r="11" fill="#e8332a" stroke="#ffffff" stroke-width="2.5"/>' +
+         '<text x="' + c[0] + '" y="' + (c[1] + 4.5) + '" text-anchor="middle" class="mb-gcur">' + cur.key.slice(1) + "</text>";
   if (GUIDE_NOTES[cur.key]) {
     var nx = Math.min(c[0], GUIDE_W - 40);   // 右端で文字が切れないよう内側に寄せる
-    out += '<text x="' + nx + '" y="' + (c[1] + 28) + '" text-anchor="middle" class="mb-gnote">' + GUIDE_NOTES[cur.key] + "</text>";
+    out += '<text x="' + nx + '" y="' + (c[1] + 24) + '" text-anchor="middle" class="mb-gnote">' + GUIDE_NOTES[cur.key] + "</text>";
   }
   return out + "</svg>";
 }
