@@ -273,12 +273,12 @@ function fetchArrayBuffer(url) {
 /* ===========================================================================
    6. 端末内の保存
    =========================================================================== */
-var APP_VERSION = "29";   // 更新が反映されたかを設定画面で確かめるための番号（index.html の ?v= と揃える）
+var APP_VERSION = "30";   // 更新が反映されたかを設定画面で確かめるための番号（index.html の ?v= と揃える）
 var KEY_TOKEN = "busboard.token";
 // トークンは同じサイト（jlsawo.github.io）のいさバスと共有し、時刻表はアプリごとに分ける
 var KEY_DATA  = BUSBOARD_CONFIG.storageKey || "busboard.timetable";
 var KEY_MODE  = (BUSBOARD_CONFIG.storageKey || "busboard") + ".mode";
-var KEY_EXCLUDE = (BUSBOARD_CONFIG.storageKey || "busboard") + ".exclude";
+var KEY_OPTIONAL = (BUSBOARD_CONFIG.storageKey || "busboard") + ".showOptional";
 
 /* 表示の切り替え: "to" = 荻窪駅行き、"from" = 荻窪駅から（法務局・清水二丁目へ） */
 var MODES = {
@@ -355,9 +355,9 @@ function render() {
       ? scheduledDepartures(STATE.data, now, STATE.data.retTrips || [], STATE.data.retStops || [])
       : scheduledDepartures(STATE.data, now);
     var applied = applyRealtime(sched, STATE.rt);
-    var ex = BUSBOARD_CONFIG.excludable;
-    if (!fromMode && STATE.exclude && ex) {
-      applied = applied.filter(function (r) { return ex.keys.indexOf(r.stop.key) < 0; });
+    var opt = BUSBOARD_CONFIG.optional;
+    if (!fromMode && !STATE.showOptional && opt) {
+      applied = applied.filter(function (r) { return opt.keys.indexOf(r.stop.key) < 0; });
     }
     rows = pickTop(applied, nowMs);
   }
@@ -431,13 +431,13 @@ function stopColorAttr(key) {
   return "";
 }
 
-// 「八丁は除く」: 荻窪駅行きの表示から excludable.keys ののりばを外す
-function setExclude(on) {
-  STATE.exclude = !!on;
-  save(KEY_EXCLUDE, STATE.exclude ? "1" : "0");
-  var $e = document.getElementById("exclude");
-  $e.setAttribute("aria-pressed", STATE.exclude ? "true" : "false");
-  $e.classList.toggle("on", STATE.exclude);
+// 「八丁あり」: 押したときだけ、荻窪駅行きの表示に optional.keys ののりばを加える（ふだんは出さない）
+function setOptional(on) {
+  STATE.showOptional = !!on;
+  save(KEY_OPTIONAL, STATE.showOptional ? "1" : "0");
+  var $e = document.getElementById("optional");
+  $e.setAttribute("aria-pressed", STATE.showOptional ? "true" : "false");
+  $e.classList.toggle("on", STATE.showOptional);
   render();
 }
 
@@ -795,6 +795,39 @@ $bubble.addEventListener("click", function (e) {
 });
 document.addEventListener("keydown", function (e) { if (e.key === "Escape") closeMapBubble(); });
 
+// 画面上部の帯: 「ホーム画面に追加」（インストールできるときだけ）と「八丁あり」（荻窪駅行きのときだけ）
+function updateBar() {
+  var showOpt = STATE.mode !== "from" && !!BUSBOARD_CONFIG.optional;
+  var showInstall = !!STATE.installPrompt;
+  document.getElementById("optional").hidden = !showOpt;
+  document.getElementById("install").hidden = !showInstall;
+  document.getElementById("filterbar").hidden = !showOpt && !showInstall;
+}
+
+/* ---------- インストール ----------
+   Chrome は、まだインストールしていないときだけ beforeinstallprompt を知らせてくる。
+   そのときだけボタンを出し、押したらインストールの確認を出す。インストール済みのアプリとして
+   開いているとき（display-mode: standalone）や、インストールが済んだあとは出さない。 */
+STATE.installPrompt = null;
+window.addEventListener("beforeinstallprompt", function (e) {
+  if (window.matchMedia && window.matchMedia("(display-mode: standalone)").matches) return;
+  e.preventDefault();   // Chrome が自分で出す案内の代わりに、このボタンを出す
+  STATE.installPrompt = e;
+  updateBar();
+});
+window.addEventListener("appinstalled", function () {
+  STATE.installPrompt = null;
+  updateBar();
+});
+document.getElementById("install").addEventListener("click", function () {
+  var p = STATE.installPrompt;
+  if (!p) return;
+  p.prompt();
+  p.userChoice.then(function (c) {
+    if (c && c.outcome === "accepted") { STATE.installPrompt = null; updateBar(); }
+  }).catch(function () {});
+});
+
 function setMode(mode) {
   STATE.mode = MODES[mode] ? mode : "to";
   save(KEY_MODE, STATE.mode);
@@ -803,7 +836,7 @@ function setMode(mode) {
   $m.classList.toggle("is-from", STATE.mode === "from");
   closeMapBubble();
   // 「荻窪駅から」には八丁が出ないので、除外ボタンの帯ごと隠す
-  document.getElementById("filterbar").hidden = STATE.mode === "from" || !BUSBOARD_CONFIG.excludable;
+  updateBar();
   render();
 }
 
@@ -1171,10 +1204,10 @@ function mockData() {
   }
 
   STATE.mode = load(KEY_MODE) === "from" ? "from" : "to";
-  if (BUSBOARD_CONFIG.excludable) document.getElementById("exclude").textContent = BUSBOARD_CONFIG.excludable.label;
-  STATE.exclude = load(KEY_EXCLUDE) === "1";
-  setExclude(STATE.exclude);
-  document.getElementById("exclude").addEventListener("click", function () { setExclude(!STATE.exclude); });
+  if (BUSBOARD_CONFIG.optional) document.getElementById("optional").textContent = BUSBOARD_CONFIG.optional.label;
+  STATE.showOptional = load(KEY_OPTIONAL) === "1";
+  setOptional(STATE.showOptional);
+  document.getElementById("optional").addEventListener("click", function () { setOptional(!STATE.showOptional); });
   setMode(STATE.mode);
   document.getElementById("mode").addEventListener("click", function () {
     setMode(STATE.mode === "from" ? "to" : "from");

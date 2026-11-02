@@ -52,18 +52,26 @@ header {
 
 /* 「八丁は除く」の帯（荻窪駅行きのときだけ表示） */
 #filterbar {
-  flex: 0 0 auto; display: flex; justify-content: flex-end;
+  flex: 0 0 auto; display: flex; justify-content: flex-end; align-items: center; gap: 2vmin;
   padding: .8vmin 2.4vmin; border-bottom: 1px solid var(--hair);
 }
 #filterbar[hidden] { display: none; }
-#exclude {
+#optional {
   font: inherit; font-size: clamp(13px, 2.4vmin, 22px); font-weight: 700;
   color: var(--dim); background: transparent; border: 1px solid #2c3644; border-radius: 999px;
   padding: .3em .9em;
 }
-#exclude::before { content: "☐ "; }
-#exclude.on { color: #cfe8d4; background: #1f3326; border-color: #3f7a52; }
-#exclude.on::before { content: "☑ "; }
+#optional::before { content: "☐ "; }
+#optional.on { color: #cfe8d4; background: #1f3326; border-color: #3f7a52; }
+#optional.on::before { content: "☑ "; }
+#optional[hidden], #install[hidden] { display: none; }
+/* インストールのボタンは目立つ黄色。左に置く */
+#install {
+  margin-right: auto;
+  font: inherit; font-size: clamp(13px, 2.4vmin, 22px); font-weight: 700;
+  color: #06080b; background: var(--soon); border: 0; border-radius: 999px; padding: .35em 1em;
+}
+#install::before { content: "📲 "; }
 #clock  { font-size: clamp(18px, 3.6vmin, 34px); font-variant-numeric: tabular-nums; font-weight: 600; }
 #spin {
   display: inline-block; width: .9em; height: .9em; margin-left: .5em;
@@ -243,7 +251,7 @@ footer { padding-bottom: calc(1.2vmin + env(safe-area-inset-bottom, 0px)); }
   #clock { font-size: clamp(18px, 6vw, 34px); }
   #mode  { font-size: clamp(14px, 4.2vw, 26px); }
   #filterbar { padding: 1.6vw 4vw; }
-  #exclude { font-size: clamp(13px, 3.8vw, 22px); }
+  #optional, #install { font-size: clamp(13px, 3.8vw, 22px); }
   #meta  { font-size: clamp(10px, 2.9vw, 19px); }
   #disclaimer { font-size: clamp(8px, 2.4vw, 14px); }
 }

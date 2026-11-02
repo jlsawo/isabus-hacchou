@@ -9,7 +9,7 @@
 <link rel="manifest" href="manifest.webmanifest">
 <link rel="icon" href="icons/icon.svg" type="image/svg+xml">
 <link rel="apple-touch-icon" href="icons/icon-192.png">
-<link rel="stylesheet" href="style.css?v=29">
+<link rel="stylesheet" href="style.css?v=30">
 </head>
 <body>
 
@@ -20,7 +20,9 @@
 </header>
 
 <div id="filterbar">
-  <button id="exclude" type="button" aria-pressed="false">八丁は除く</button>
+  <!-- Chrome で開いていて、まだインストールしていないときだけ出す -->
+  <button id="install" type="button" hidden>ホーム画面に追加</button>
+  <button id="optional" type="button" aria-pressed="false">八丁あり</button>
 </div>
 
 <ul id="list"></ul>
@@ -76,8 +78,8 @@
   </div>
 </section>
 
-<script src="config.js?v=29"></script>
-<script src="gtfs.js?v=29"></script>
-<script src="app.js?v=29"></script>
+<script src="config.js?v=30"></script>
+<script src="gtfs.js?v=30"></script>
+<script src="app.js?v=30"></script>
 </body>
 </html>
