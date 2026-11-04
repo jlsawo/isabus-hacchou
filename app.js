@@ -273,7 +273,7 @@ function fetchArrayBuffer(url) {
 /* ===========================================================================
    6. 端末内の保存
    =========================================================================== */
-var APP_VERSION = "32";   // 更新が反映されたかを設定画面で確かめるための番号（index.html の ?v= と揃える）
+var APP_VERSION = "33";   // 更新が反映されたかを設定画面で確かめるための番号（index.html の ?v= と揃える）
 var KEY_TOKEN = "busboard.token";
 // トークンは同じサイト（jlsawo.github.io）のいさバスと共有し、時刻表はアプリごとに分ける
 var KEY_DATA  = BUSBOARD_CONFIG.storageKey || "busboard.timetable";
@@ -394,7 +394,7 @@ function render() {
             '<span class="stop">' + esc(r.stop.name) + " " + esc(r.stop.direction) + "</span>" +
             '<span class="op op-' + r.op.key + '">' + esc(r.op.label) + "</span>" +
             (r.arrMs ? '<span class="arr">' + hhmm(new Date(r.arrMs)) + "着</span>" : "") +
-            (r.stop.lat && r.stop.lon ? mapLink(r.stop) : "") +
+            (r.stop.lat && r.stop.lon ? mapLink(r.stop, r.route) : "") +
             (r.live ? "" : '<span class="tag">予定</span>') +
           "</div>" +
         "</div>" +
@@ -442,8 +442,8 @@ function setOptional(on) {
 }
 
 // 乗り場の場所を吹き出しの小さな地図で見せるボタン（1文字分のアイコン）
-function mapLink(stop) {
-  return '<button type="button" class="map" data-stop="' + esc(stop.stopId) + '" data-lat="' + esc(stop.lat) + '" data-lon="' + esc(stop.lon) +
+function mapLink(stop, route) {
+  return '<button type="button" class="map" data-stop="' + esc(stop.stopId) + '" data-route="' + esc(route) + '" data-lat="' + esc(stop.lat) + '" data-lon="' + esc(stop.lon) +
          '" data-name="' + esc(stop.name) + '" aria-label="' + esc(stop.name) + 'の場所を地図で見る">📍</button>';
 }
 
@@ -692,9 +692,19 @@ var GUIDE_POLES = {
 var GUIDE_NOTES = { N8: "（午前のみ）", N9: "（午後のみ）" };
 
 // 乗り場 → 案内図の上の場所の名前（例: "N3"）。分からなければ ""（そのときは道路の形から描いた図）
-function guideKey(name, id) {
-  var o = (BUSBOARD_CONFIG.returnMode && BUSBOARD_CONFIG.returnMode.poleNumbers) || {};
+// 系統名をそろえる: 全角の数字・ハイフンを半角にし、枝番（-1, -2）を外す（例: 荻１５－２ → 荻15）
+function baseRoute(r) {
+  return String(r || "").replace(/[０-９]/g, function (c) { return String.fromCharCode(c.charCodeAt(0) - 0xFEE0); })
+    .replace(/[－‐ー―−]/g, "-").replace(/\s/g, "").replace(/-.*$/, "");
+}
+
+// 乗り場の決め方: config.js の poleNumbers（stop_id ごと）> routeNumbers（系統ごと）> 時刻表の番号
+function guideKey(name, id, route) {
+  var rm = BUSBOARD_CONFIG.returnMode || {};
+  var o = rm.poleNumbers || {};
   if (o[id]) return o[id];
+  var byRoute = (rm.routeNumbers || {})[baseRoute(route)];
+  if (byRoute && GUIDE_POLES[byRoute]) return byRoute;
   var num = poleNumber(name, id);
   if (!num || /南口/.test(name || "")) return "";
   var key = "N" + num;
@@ -725,7 +735,7 @@ function drawGuideMap(cur, w, h) {
 function renderMapInner() {
   if (!BUBBLE) return;
   var b = BUBBLE, v = b.v, $m = $bubble.querySelector(".mb-map");
-  b.key = guideKey(b.name, b.stopId);
+  b.key = guideKey(b.name, b.stopId, b.route);
   if (b.key) {
     var gw = v.w, gh = Math.round(v.w * GUIDE_H / GUIDE_W);
     $m.style.height = gh + "px";
@@ -743,7 +753,7 @@ function openMapBubble(btn) {
   if (isNaN(lat) || isNaN(lon)) return;
 
   var w = Math.min(320, window.innerWidth - 24), h = Math.round(w * 0.8);   // 縦にも余裕を持たせ、ロータリーが大きく見える縮尺に
-  BUBBLE = { v: mapView(w, h), lat: lat, lon: lon, stopId: btn.getAttribute("data-stop"), name: btn.getAttribute("data-name") };
+  BUBBLE = { v: mapView(w, h), lat: lat, lon: lon, stopId: btn.getAttribute("data-stop"), name: btn.getAttribute("data-name"), route: btn.getAttribute("data-route") };
 
   $bubble.innerHTML =
     '<div class="mb-head"><span class="mb-title">' + esc(btn.getAttribute("data-name")) + "</span>" +
