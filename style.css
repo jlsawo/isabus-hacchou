@@ -82,10 +82,11 @@ header {
 @keyframes spin { to { transform: rotate(360deg); } }
 
 /* ---------- 一覧 ---------- */
-#list { flex: 1 1 auto; display: flex; flex-direction: column; list-style: none; min-height: 0; }
+/* 画面には5件（--rows）を見せ、続きはスクロール */
+#list { flex: 1 1 auto; display: flex; flex-direction: column; list-style: none; min-height: 0; overflow-y: auto; --rows: 5; }
 
 .row {
-  flex: 1 1 0;
+  flex: 0 0 calc(100% / var(--rows));
   display: flex; align-items: center; gap: 2.2vmin;
   padding: 0 2.4vmin;
   background: var(--row);
@@ -122,19 +123,34 @@ body.stale .row .mins { color: var(--stale) !important; }
 
 .info { flex: 1 1 auto; min-width: 0; display: flex; flex-direction: column; gap: .5vmin; }
 
-.line1 { display: flex; align-items: baseline; gap: 1.4vmin; min-width: 0; }
+.line1 { display: flex; align-items: flex-start; gap: 1.4vmin; min-width: 0; }
 .route {
   flex: 0 0 auto;
   font-size: clamp(16px, 3.8vmin, 40px); font-weight: 700;
   padding: .06em .42em; border-radius: .28em;
   background: #223042; color: #cfe4ff;
 }
+/* 行先は切らずに全部（長ければ折り返す） */
 .sign {
-  font-size: clamp(18px, 4.2vmin, 44px); font-weight: 700;
-  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+  font-size: clamp(16px, 3.8vmin, 40px); font-weight: 700; line-height: 1.25;
+  overflow-wrap: anywhere;
 }
 
-.line2 { display: flex; align-items: center; gap: 1.2vmin; min-width: 0; color: var(--dim); }
+/* 2行目は文章として続けて書く（「清水二丁目で降りる」の間に隙間を空けない） */
+.line2 { display: block; min-width: 0; color: #c3cad3; font-size: clamp(13px, 2.8vmin, 26px); line-height: 1.35; }
+.line2 .arr { margin-left: .7em; }
+.line2 b { color: var(--fg); }
+.line3 { display: flex; align-items: center; gap: 1.2vmin; min-width: 0; }
+/* のりばのボタン（押すと地図） */
+.map.pole {
+  filter: none; opacity: 1; display: inline-flex; align-items: center; gap: .3em;
+  font-size: clamp(12px, 2.4vmin, 22px); font-weight: 700; color: #06303a; background: #e8edf2;
+  border-radius: 999px; padding: .1em .7em .1em .25em;
+}
+.map.pole .pnum {
+  font-style: normal; display: inline-flex; align-items: center; justify-content: center;
+  width: 1.45em; height: 1.45em; border-radius: 50%; background: #e8332a; color: #fff;
+}
 .stop { font-size: clamp(12px, 2.6vmin, 26px); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .op {
   flex: 0 0 auto;
@@ -238,8 +254,10 @@ footer { padding-bottom: calc(1.2vmin + env(safe-area-inset-bottom, 0px)); }
   .mins .soon, .mins .soon-dot { font-size: clamp(19px, 6vw, 46px); }   /* 点と合わせて分数の欄の幅に収める */
   .row.is-soon { box-shadow: inset 1.2vw 0 0 #ff8a1f; }
   .route { font-size: clamp(15px, 5vw, 32px); }
-  .sign  { font-size: clamp(18px, 6.6vw, 42px); }
-  .line2 { flex-wrap: wrap; row-gap: .4em; }
+  .sign  { font-size: clamp(16px, 5.4vw, 36px); }
+  .line2 { font-size: clamp(13px, 3.9vw, 24px); }
+  .line3 { flex-wrap: wrap; row-gap: .3em; }
+  .map.pole { font-size: clamp(12px, 3.6vw, 22px); padding: .15em .8em .15em .3em; }
   .stop  { font-size: clamp(12px, 3.6vw, 24px); flex-basis: 100%; }
   .op    { font-size: clamp(11px, 3.2vw, 21px); }
   .tag   { font-size: clamp(10px, 3vw, 19px); }

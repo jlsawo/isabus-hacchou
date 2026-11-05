@@ -18,7 +18,8 @@ var BUSBOARD_CONFIG = {
   proxy: "https://isabus-proxy.jlsawo.workers.dev",
 
   storageKey: "busboard.hacchou.timetable",   // 時刻表の保存先（いさバスとは別にする）
-  maxItems:   7,       // 表示件数
+  visibleRows: 5,      // 画面に見える件数（それより先はスクロールで見る）
+  maxItems:   40,      // 一覧に載せる最大件数（この先 horizonMin 分の便）
   horizonMin: 120,     // 何分先までを対象にするか
   refreshMs:  60000,   // リアルタイム情報の取得間隔
 

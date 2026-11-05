@@ -14,6 +14,7 @@
    =========================================================================== */
 var CFG = {
   maxItems:        BUSBOARD_CONFIG.maxItems,
+  visibleRows:     BUSBOARD_CONFIG.visibleRows || 5,
   refreshMs:       BUSBOARD_CONFIG.refreshMs,
   minRefreshMs:    5000,   // 手動更新の最短間隔（連打・ODPT負荷対策）
   tickMs:          5000,   // 残り分数の再計算間隔
@@ -273,7 +274,7 @@ function fetchArrayBuffer(url) {
 /* ===========================================================================
    6. 端末内の保存
    =========================================================================== */
-var APP_VERSION = "36";   // 更新が反映されたかを設定画面で確かめるための番号（index.html の ?v= と揃える）
+var APP_VERSION = "37";   // 更新が反映されたかを設定画面で確かめるための番号（index.html の ?v= と揃える）
 var KEY_TOKEN = "busboard.token";
 // トークンは同じサイト（jlsawo.github.io）のいさバスと共有し、時刻表はアプリごとに分ける
 var KEY_DATA  = BUSBOARD_CONFIG.storageKey || "busboard.timetable";
@@ -369,10 +370,12 @@ function render() {
                : "時刻表データがありません";
 
   var html = "";
-  for (var i = 0; i < CFG.maxItems; i++) {
+  // 便がある分だけ並べる（画面には visibleRows 件、続きはスクロール）。少ないときは空の行で埋める
+  var n = Math.max(rows.length, Math.min(CFG.visibleRows, CFG.maxItems));
+  for (var i = 0; i < n; i++) {
     var r = rows[i];
     if (!r) {
-      html += '<li class="row empty">' + esc(emptyMsg) + "</li>";
+      html += '<li class="row empty">' + (i === rows.length ? esc(emptyMsg) : "") + "</li>";
       continue;
     }
     var mins = Math.floor((r.ms - nowMs) / 60000);
@@ -386,15 +389,21 @@ function render() {
       '<li class="row stop-' + r.stop.key + (soon ? " is-soon" : "") + '">' +
         '<div class="mins"' + stopColorAttr(r.stop.colorKey || r.stop.key) + ">" + minsHtml + "</div>" +
         '<div class="info">' +
+          // 1行目: 系統と行先（バス会社の行先表示のまま、切らずに全部）
           '<div class="line1">' +
             '<span class="route">' + esc(r.route) + "</span>" +
             '<span class="sign">' + esc(r.sign) + "</span>" +
           "</div>" +
-          '<div class="line2">' +
-            '<span class="stop">' + esc(r.stop.name) + " " + esc(r.stop.direction) + "</span>" +
+          // 2行目: 荻窪駅行きは乗るバス停、荻窪駅からは降りるバス停と着く時刻
+          '<div class="line2">' + (fromMode
+            ? "<b>" + esc(String(r.stop.direction || "").replace(/^→\s*/, "")) + "</b>で降りる" +
+              (r.arrMs ? '<span class="arr">' + hhmm(new Date(r.arrMs)) + "着</span>" : "")
+            : "<b>" + esc(r.stop.name) + "</b>から乗る") +
+          "</div>" +
+          // 3行目: バス会社・のりば（押すと地図）・予定
+          '<div class="line3">' +
             '<span class="op op-' + r.op.key + '">' + esc(r.op.label) + "</span>" +
-            (r.arrMs ? '<span class="arr">' + hhmm(new Date(r.arrMs)) + "着</span>" : "") +
-            (r.stop.lat && r.stop.lon ? mapLink(r.stop, r.route, r.op.key) : "") +
+            (fromMode && r.stop.lat && r.stop.lon ? poleButton(r) : "") +
             (r.live ? "" : '<span class="tag">予定</span>') +
           "</div>" +
         "</div>" +
@@ -442,6 +451,13 @@ function setOptional(on) {
 }
 
 // 乗り場の場所を吹き出しの小さな地図で見せるボタン（1文字分のアイコン）
+// のりばのボタン: 「⑤番のりば」。番号が分からない乗り場は「のりば」。押すと乗り場の地図
+function poleButton(r) {
+  var key = guideKey(r.stop.name, r.stop.stopId, r.route, r.op.key);
+  var label = key ? '<i class="pnum">' + key.slice(1) + "</i>番のりば" : "のりば";
+  return mapLink(r.stop, r.route, r.op.key).replace('class="map"', 'class="map pole"').replace(">📍</button>", ">" + label + "</button>");
+}
+
 function mapLink(stop, route, op) {
   return '<button type="button" class="map" data-stop="' + esc(stop.stopId) + '" data-route="' + esc(route) + '" data-op="' + esc(op) + '" data-lat="' + esc(stop.lat) + '" data-lon="' + esc(stop.lon) +
          '" data-name="' + esc(stop.name) + '" aria-label="' + esc(stop.name) + 'の場所を地図で見る">📍</button>';
