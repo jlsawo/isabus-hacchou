@@ -274,7 +274,7 @@ function fetchArrayBuffer(url) {
 /* ===========================================================================
    6. 端末内の保存
    =========================================================================== */
-var APP_VERSION = "37";   // 更新が反映されたかを設定画面で確かめるための番号（index.html の ?v= と揃える）
+var APP_VERSION = "38";   // 更新が反映されたかを設定画面で確かめるための番号（index.html の ?v= と揃える）
 var KEY_TOKEN = "busboard.token";
 // トークンは同じサイト（jlsawo.github.io）のいさバスと共有し、時刻表はアプリごとに分ける
 var KEY_DATA  = BUSBOARD_CONFIG.storageKey || "busboard.timetable";
@@ -389,27 +389,28 @@ function render() {
       '<li class="row stop-' + r.stop.key + (soon ? " is-soon" : "") + '">' +
         '<div class="mins"' + stopColorAttr(r.stop.colorKey || r.stop.key) + ">" + minsHtml + "</div>" +
         '<div class="info">' +
-          // 1行目: 系統と行先（バス会社の行先表示のまま、切らずに全部）
+          // 1行目: 系統と行先（バス会社の行先表示のまま、改行せず1行。長いときは fitSigns が文字を小さくする）
+          // （系統は3行目に置き、行先が1行目を広く使えるようにする）
           '<div class="line1">' +
-            '<span class="route">' + esc(r.route) + "</span>" +
             '<span class="sign">' + esc(r.sign) + "</span>" +
           "</div>" +
-          // 2行目: 荻窪駅行きは乗るバス停、荻窪駅からは降りるバス停と着く時刻
+          // 2行目: 荻窪駅行きは乗るバス停、荻窪駅からは「⑤のりば ▶ 降り場：清水二丁目」（のりばを押すと地図）
           '<div class="line2">' + (fromMode
-            ? "<b>" + esc(String(r.stop.direction || "").replace(/^→\s*/, "")) + "</b>で降りる" +
-              (r.arrMs ? '<span class="arr">' + hhmm(new Date(r.arrMs)) + "着</span>" : "")
+            ? (r.stop.lat && r.stop.lon ? poleButton(r) : "") + '<span class="arw">▶</span>' +
+              '<span class="lbl">降り場：</span><b>' + esc(String(r.stop.direction || "").replace(/^→\s*/, "")) + "</b>"
             : "<b>" + esc(r.stop.name) + "</b>から乗る") +
           "</div>" +
-          // 3行目: バス会社・のりば（押すと地図）・予定
+          // 3行目: 系統・バス会社・予定
           '<div class="line3">' +
+            '<span class="route">' + esc(r.route) + "</span>" +
             '<span class="op op-' + r.op.key + '">' + esc(r.op.label) + "</span>" +
-            (fromMode && r.stop.lat && r.stop.lon ? poleButton(r) : "") +
             (r.live ? "" : '<span class="tag">予定</span>') +
           "</div>" +
         "</div>" +
       "</li>";
   }
   $list.innerHTML = html;
+  fitSigns();
 
   // メタ情報（ODPT 開発者ガイドライン 2.1.1 / 2.2.1）
   var parts = [];
@@ -451,10 +452,28 @@ function setOptional(on) {
 }
 
 // 乗り場の場所を吹き出しの小さな地図で見せるボタン（1文字分のアイコン）
-// のりばのボタン: 「⑤番のりば」。番号が分からない乗り場は「のりば」。押すと乗り場の地図
+// 行先（1行目）と、のりば・降り場（2行目）は改行せず1行に収める:
+// はみ出す行だけ、収まるまで文字を少しずつ小さくする
+function fitLine(box, target, min) {
+  target.style.fontSize = "";
+  var size = parseFloat(getComputedStyle(target).fontSize);
+  while (box.scrollWidth > box.clientWidth && size > min) {
+    size -= 0.5;
+    target.style.fontSize = size + "px";
+  }
+}
+function fitSigns() {
+  var l1 = $list.querySelectorAll(".line1");
+  for (var i = 0; i < l1.length; i++) { var s = l1[i].querySelector(".sign"); if (s) fitLine(l1[i], s, 13); }
+  var l2 = $list.querySelectorAll(".line2");
+  for (var j = 0; j < l2.length; j++) fitLine(l2[j], l2[j], 12);
+}
+window.addEventListener("resize", fitSigns);
+
+// のりば: 文字と同じ大きさの赤い番号「⑤のりば」。番号が分からない乗り場は「のりば」。押すと乗り場の地図
 function poleButton(r) {
   var key = guideKey(r.stop.name, r.stop.stopId, r.route, r.op.key);
-  var label = key ? '<i class="pnum">' + key.slice(1) + "</i>番のりば" : "のりば";
+  var label = key ? '<i class="pnum">' + key.slice(1) + "</i>のりば" : "のりば";
   return mapLink(r.stop, r.route, r.op.key).replace('class="map"', 'class="map pole"').replace(">📍</button>", ">" + label + "</button>");
 }
 
