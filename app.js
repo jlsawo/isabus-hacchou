@@ -274,7 +274,7 @@ function fetchArrayBuffer(url) {
 /* ===========================================================================
    6. 端末内の保存
    =========================================================================== */
-var APP_VERSION = "39";   // 更新が反映されたかを設定画面で確かめるための番号（index.html の ?v= と揃える）
+var APP_VERSION = "40";   // 更新が反映されたかを設定画面で確かめるための番号（index.html の ?v= と揃える）
 var KEY_TOKEN = "busboard.token";
 // トークンは同じサイト（jlsawo.github.io）のいさバスと共有し、時刻表はアプリごとに分ける
 var KEY_DATA  = BUSBOARD_CONFIG.storageKey || "busboard.timetable";
@@ -401,10 +401,11 @@ function render() {
             '<span class="op op-' + r.op.key + '">' + esc(r.op.label) + "</span>" +
             (r.live ? "" : '<span class="tag">予定</span>') +
           "</div>" +
-          // 3行目: 荻窪駅からは「降り場：清水二丁目」、荻窪駅行きは「八丁から乗る」
+          // 3行目: 荻窪駅からは「降り場：清水二丁目」、荻窪駅行きは「八丁 ▶ 降り場：荻窪駅」（乗るバス停 ▶ 降り場）
           '<div class="line2">' + (fromMode
             ? '<span class="lbl">降り場：</span><b>' + esc(String(r.stop.direction || "").replace(/^→\s*/, "")) + "</b>"
-            : "<b>" + esc(r.stop.name) + "</b>から乗る") +
+            : "<b>" + esc(r.stop.name) + "</b>" + '<span class="arw">▶</span>' +
+              '<span class="lbl">降り場：</span><b>' + toStationOf(r.sign) + "</b>") +
           "</div>" +
         "</div>" +
       "</li>";
@@ -452,6 +453,11 @@ function setOptional(on) {
 }
 
 // 乗り場の場所を吹き出しの小さな地図で見せるボタン（1文字分のアイコン）
+// 荻窪駅行きの降り場: 行先に「阿佐ヶ谷」があれば阿佐ヶ谷駅、それ以外は荻窪駅（荻窪駅北口行きも含む）
+function toStationOf(sign) {
+  return /阿佐ヶ谷|阿佐谷/.test(sign || "") ? "阿佐ヶ谷駅" : "荻窪駅";
+}
+
 // 行先（1行目）と、のりば・降り場（2行目）は改行せず1行に収める:
 // はみ出す行だけ、収まるまで文字を少しずつ小さくする
 function fitLine(box, target, min) {
