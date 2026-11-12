@@ -274,7 +274,7 @@ function fetchArrayBuffer(url) {
 /* ===========================================================================
    6. 端末内の保存
    =========================================================================== */
-var APP_VERSION = "41";   // 更新が反映されたかを設定画面で確かめるための番号（index.html の ?v= と揃える）
+var APP_VERSION = "42";   // 更新が反映されたかを設定画面で確かめるための番号（index.html の ?v= と揃える）
 var KEY_TOKEN = "busboard.token";
 // トークンは同じサイト（jlsawo.github.io）のいさバスと共有し、時刻表はアプリごとに分ける
 var KEY_DATA  = BUSBOARD_CONFIG.storageKey || "busboard.timetable";
@@ -360,14 +360,9 @@ function render() {
     if (!fromMode && !STATE.showOptional && opt) {
       applied = applied.filter(function (r) { return opt.keys.indexOf(r.stop.key) < 0; });
     }
-    // 「荻窪駅から」で出さない系統（config.js の returnMode.excludeRoutes。例: "51" は 51・荻51 など）
-    var ex = fromMode && (BUSBOARD_CONFIG.returnMode || {}).excludeRoutes;
-    if (ex && ex.length) {
-      applied = applied.filter(function (r) {
-        var b = baseRoute(r.route), num = b.replace(/^\D+/, "");
-        return ex.indexOf(b) < 0 && ex.indexOf(num) < 0;
-      });
-    }
+    // 「荻窪駅から」は、config.js の returnMode.routeNumbers に載せた系統だけを出す
+    // （清水二丁目・法務局杉並出張所を通ると利用者に確認したもの。データに残っている他の系統は出さない）
+    if (fromMode) applied = applied.filter(function (r) { return isListedReturnRoute(r.op.key, r.route); });
     rows = pickTop(applied, nowMs);
   }
 
@@ -740,6 +735,13 @@ var GUIDE_POLES = {
 };
 var GUIDE_NOTES = { N8: "（午前のみ）", N9: "（午後のみ）" };
 
+// 「荻窪駅から」に出す系統か（returnMode.onlyListedRoutes が true のときは routeNumbers に載っているものだけ）
+function isListedReturnRoute(opKey, route) {
+  var rm = BUSBOARD_CONFIG.returnMode || {};
+  if (!rm.onlyListedRoutes) return true;
+  return !!((rm.routeNumbers || {})[opKey] || {})[baseRoute(route)];
+}
+
 // 乗り場 → 案内図の上の場所の名前（例: "N3"）。分からなければ ""（そのときは道路の形から描いた図）
 // 系統名をそろえる: 全角の数字・ハイフンを半角にし、枝番（-1, -2）を外す（例: 荻１５－２ → 荻15）
 function baseRoute(r) {
@@ -963,6 +965,13 @@ function diagnose() {
     lines.push("荻窪駅から: 収録 " + d.retTrips.length + " / 表示候補 " + rs.length +
                (Object.keys(byDest).length ? "（" + Object.keys(byDest).map(function (k) { return k + " " + byDest[k]; }).join("、") + "）" : "") +
                " / 乗り場 " + d.retStops.map(function (s) { return s.name; }).filter(function (v, i, a) { return a.indexOf(v) === i; }).join("・"));
+    var hidden = {};
+    d.retTrips.forEach(function (t) {
+      var op = d.ops[t[1]], route = d.routes[t[4]];
+      if (!isListedReturnRoute(op.key, route)) hidden[op.label + " " + route] = (hidden[op.label + " " + route] || 0) + 1;
+    });
+    lines.push("荻窪駅から 出さない系統: " + (Object.keys(hidden).length
+      ? Object.keys(hidden).sort().map(function (k) { return k + "（" + hidden[k] + "便）"; }).join("、") : "なし"));
   }
 
   d.stops.forEach(function (st, i) {
