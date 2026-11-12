@@ -294,7 +294,7 @@ function fetchArrayBuffer(url) {
 /* ===========================================================================
    6. 端末内の保存
    =========================================================================== */
-var APP_VERSION = "47";   // 更新が反映されたかを設定画面で確かめるための番号（index.html の ?v= と揃える）
+var APP_VERSION = "48";   // 更新が反映されたかを設定画面で確かめるための番号（index.html の ?v= と揃える）
 var KEY_TOKEN = "busboard.token";
 // トークンは同じサイト（jlsawo.github.io）のいさバスと共有し、時刻表はアプリごとに分ける
 var KEY_DATA  = BUSBOARD_CONFIG.storageKey || "busboard.timetable";
@@ -359,10 +359,16 @@ function busState(r, nowMs) {
   }
   return r.live ? "run" : "none";
 }
+// 印は押せるボタンにして、押すと意味を吹き出しで出す（TAG_TIP）
 var STATE_TAG = {
-  wait: '<span class="tag tag-wait">発車待ち</span>',
-  run:  '<span class="tag tag-live">走行中</span>',
-  none: '<span class="tag">未発車</span>'
+  wait: '<button type="button" class="tag tag-wait" data-tip="wait">発車待ち</button>',
+  run:  '<button type="button" class="tag tag-live" data-tip="run">走行中</button>',
+  none: '<button type="button" class="tag" data-tip="none">未発車</button>'
+};
+var TAG_TIP = {
+  wait: "このバスは、ここが始発ののりばで、発車時刻を待っています。今行けば乗れます。",
+  run:  "このバスは走っています。バス会社から運行情報が届いていて、遅れも含めた時刻で表示しています。",
+  none: "このバスの運行情報は、まだ届いていません。たいていは始発を出る前の便です。時刻は時刻表どおりの見込みです。"
 };
 
 /* ===========================================================================
@@ -529,9 +535,28 @@ function fitLine(box, target, min) {
     target.style.fontSize = size + "px";
   }
 }
+// 行先が1行に収まらないときは、バスの行先表示のようにゆっくり流す（左へ流れ、左から右へ読める）。
+// 流れる速さは一定で、端まで行ったら頭に戻ってくり返す。動きを減らす設定の端末では、流さずに文字を小さくする。
+var MARQUEE_PX_PER_SEC = 40;   // 流れる速さ（1秒あたりの画素）
+var MARQUEE_HOLD = 0.25;       // 1周のうち、頭で止まっている割合
+var REDUCED_MOTION = window.matchMedia && window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+function marquee(box, sign) {
+  sign.style.fontSize = "";
+  if (box.scrollWidth <= box.clientWidth) return false;
+  if (REDUCED_MOTION) return false;
+  var text = sign.textContent;
+  sign.innerHTML = '<span class="mq-track"><span class="mq-copy">' + esc(text) + '</span><span class="mq-copy" aria-hidden="true">' + esc(text) + "</span></span>";
+  var track = sign.firstChild, dist = track.firstChild.offsetWidth;   // 1つ分（すき間を含む）流すと、ちょうど頭に戻る
+  var dur = dist / MARQUEE_PX_PER_SEC / (1 - MARQUEE_HOLD);
+  track.style.animationDuration = dur.toFixed(2) + "s";
+  // 5秒ごとの描き直しで動きが最初に戻らないよう、時計に合わせた位置から始める
+  track.style.animationDelay = (-(Date.now() / 1000 % dur)).toFixed(2) + "s";
+  box.classList.add("mq");
+  return true;
+}
 function fitSigns() {
   var l1 = $list.querySelectorAll(".line1");
-  for (var i = 0; i < l1.length; i++) { var s = l1[i].querySelector(".sign"); if (s) fitLine(l1[i], s, 13); }
+  for (var i = 0; i < l1.length; i++) { var s = l1[i].querySelector(".sign"); if (s && !marquee(l1[i], s)) fitLine(l1[i], s, 13); }
   var l2 = $list.querySelectorAll(".line2");
   for (var j = 0; j < l2.length; j++) fitLine(l2[j], l2[j], 12);
 }
@@ -891,6 +916,36 @@ $bubble.addEventListener("click", function (e) {
 });
 document.addEventListener("keydown", function (e) { if (e.key === "Escape") closeMapBubble(); });
 
+/* ---------- 印（発車待ち・走行中・未発車）の意味の吹き出し ----------
+   印を押すと、その下（入らなければ上）に小さな吹き出しで意味を出す。どこかを押すと閉じる。 */
+var $tip = document.getElementById("tip");
+var TIP_FOR = null;   // 開いている吹き出しの印の種類
+function openTip(tag) {
+  var kind = tag.getAttribute("data-tip");
+  if (!$tip.hidden && TIP_FOR === kind) { closeTip(); return; }   // 同じ印をもう一度押したら閉じる
+  TIP_FOR = kind;
+  $tip.innerHTML = '<b class="tp-name">' + esc(tag.textContent) + "</b>" + esc(TAG_TIP[kind] || "") + '<span class="tp-arrow"></span>';
+  $tip.className = "tip-" + kind;
+  $tip.hidden = false;
+  var r = tag.getBoundingClientRect(), bw = $tip.offsetWidth, bh = $tip.offsetHeight;
+  var x = Math.max(12, Math.min(window.innerWidth - bw - 12, r.left + r.width / 2 - bw / 2));
+  var below = r.bottom + 10 + bh <= window.innerHeight - 8;
+  $tip.style.left = x + "px";
+  $tip.style.top = (below ? r.bottom + 10 : Math.max(8, r.top - 10 - bh)) + "px";
+  $tip.classList.toggle("above", !below);
+  $tip.querySelector(".tp-arrow").style.left = (r.left + r.width / 2 - x - 7) + "px";
+}
+function closeTip() { TIP_FOR = null; $tip.hidden = true; }
+// 吹き出しの外を押したら閉じる（印を押したときは openTip が処理する）
+document.addEventListener("click", function (e) {
+  if ($tip.hidden) return;
+  if (e.target.closest && e.target.closest(".tag[data-tip]")) return;
+  closeTip();
+}, true);
+$list.addEventListener("scroll", closeTip, { passive: true });
+window.addEventListener("resize", closeTip);
+document.addEventListener("keydown", function (e) { if (e.key === "Escape") closeTip(); });
+
 // 画面上部の帯: 「アプリをインストール」（インストールできるときだけ）と「八丁あり」（荻窪駅行きのときだけ）
 function updateBar() {
   var showOpt = STATE.mode !== "from" && !!BUSBOARD_CONFIG.optional;
@@ -1240,6 +1295,8 @@ window.addEventListener("online", refresh);
 $list.addEventListener("click", function (e) {
   var btn = e.target.closest && e.target.closest(".map");
   if (btn) { openMapBubble(btn); return; }   // 地図アイコンは吹き出しを開くだけ
+  var tag = e.target.closest && e.target.closest(".tag[data-tip]");
+  if (tag) { openTip(tag); return; }        // 印は意味の吹き出しを開くだけ
   refresh();
 });
 

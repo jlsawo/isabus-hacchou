@@ -136,7 +136,7 @@ body.stale .row .mins { color: var(--stale) !important; }
   padding: .06em .42em; border-radius: .28em;
   background: #223042; color: #cfe4ff;
 }
-/* 行先は改行せず1行（長いときは app.js の fitSigns が文字を小さくする） */
+/* 行先は改行せず1行（長いときは app.js の fitSigns が流す。動きを減らす設定の端末では文字を小さくする） */
 .sign {
   font-size: clamp(16px, 3.8vmin, 40px); font-weight: 700; line-height: 1.25;
   white-space: nowrap;
@@ -214,6 +214,27 @@ body.stale .row .mins { color: var(--stale) !important; }
   transform: rotate(45deg); border-radius: 2px;
 }
 #mapbubble.above .mb-arrow { top: auto; bottom: -8px; }
+
+/* 印の意味の吹き出し */
+#tip {
+  position: fixed; z-index: 21; max-width: min(300px, calc(100vw - 24px));
+  background: #f4f6f8; color: #10151b; border-radius: 10px;
+  box-shadow: 0 6px 24px rgba(0, 0, 0, .55); padding: 10px 12px;
+  font-size: 15px; line-height: 1.6;
+}
+#tip[hidden] { display: none; }
+#tip .tp-name { display: block; font-size: 15px; margin-bottom: 2px; }
+#tip.tip-wait .tp-name { color: #9a6a00; }
+#tip.tip-run  .tp-name { color: #1e7d47; }
+#tip.tip-none .tp-name { color: #4b5563; }
+.tp-arrow { position: absolute; top: -7px; width: 14px; height: 14px; background: #f4f6f8; transform: rotate(45deg); border-radius: 2px; }
+#tip.above .tp-arrow { top: auto; bottom: -7px; }
+
+/* 行先表示を流す（収まらない行先だけ） */
+.line1.mq .sign { display: block; overflow: hidden; flex: 1 1 auto; min-width: 0; }
+.mq-track { display: inline-flex; white-space: nowrap; animation: mq linear infinite; will-change: transform; }
+.mq-copy { padding-right: 2.5em; }   /* 流れてくる次の行先との間 */
+@keyframes mq { 0%, 25% { transform: translateX(0); } 100% { transform: translateX(-50%); } }
 .arr { flex: 0 0 auto; font-size: clamp(11px, 2.2vmin, 21px); font-weight: 700; color: #c3cad3; font-variant-numeric: tabular-nums; }
 .op-kanto { background: var(--kanto); }
 .tag {
@@ -223,9 +244,12 @@ body.stale .row .mins { color: var(--stale) !important; }
   border: 1px solid var(--stale); color: var(--stale);
 }
 /* 走行中は緑で目立たせる */
+/* 印は押すと意味が出るボタン。押せることがわかるよう点線の下線を付ける */
+button.tag { font-family: inherit; line-height: inherit; background: transparent; cursor: pointer;
+             text-decoration: underline dotted; text-underline-offset: .2em; -webkit-tap-highlight-color: transparent; }
 .tag-live { border-color: #5cc98a; color: #5cc98a; }
 /* 発車待ち（始発ののりばで、今行けば乗れる）は塗りつぶしで一番目立たせる */
-.tag-wait { border-color: var(--soon); background: var(--soon); color: #06080b; font-weight: 700; }
+.tag.tag-wait { border-color: var(--soon); background: var(--soon); color: #06080b; font-weight: 700; }
 
 .row.empty { justify-content: center; color: var(--stale); font-size: clamp(14px, 3vmin, 30px); }
 
