@@ -222,6 +222,8 @@ body.stale .row .mins { color: var(--stale) !important; }
   padding: .1em .45em; border-radius: .28em;
   border: 1px solid var(--stale); color: var(--stale);
 }
+/* 走行中は緑で目立たせる */
+.tag-live { border-color: #5cc98a; color: #5cc98a; }
 
 .row.empty { justify-content: center; color: var(--stale); font-size: clamp(14px, 3vmin, 30px); }
 

@@ -274,7 +274,7 @@ function fetchArrayBuffer(url) {
 /* ===========================================================================
    6. 端末内の保存
    =========================================================================== */
-var APP_VERSION = "45";   // 更新が反映されたかを設定画面で確かめるための番号（index.html の ?v= と揃える）
+var APP_VERSION = "46";   // 更新が反映されたかを設定画面で確かめるための番号（index.html の ?v= と揃える）
 var KEY_TOKEN = "busboard.token";
 // トークンは同じサイト（jlsawo.github.io）のいさバスと共有し、時刻表はアプリごとに分ける
 var KEY_DATA  = BUSBOARD_CONFIG.storageKey || "busboard.timetable";
@@ -397,12 +397,13 @@ function render() {
           '<div class="line1">' +
             '<span class="sign">' + esc(r.sign) + "</span>" +
           "</div>" +
-          // 2行目: 系統番号、その右にのりば（荻窪駅からのみ。押すと地図）、バス会社、予定
+          // 2行目: 系統番号、その右にのりば（荻窪駅からのみ。押すと地図）、バス会社、走行中／未発車
           '<div class="line3">' +
             '<span class="route">' + esc(r.route) + "</span>" +
             (fromMode && r.stop.lat && r.stop.lon ? poleButton(r) : "") +
             '<span class="op op-' + r.op.key + '">' + esc(r.op.label) + "</span>" +
-            (r.live ? "" : '<span class="tag">予定</span>') +
+            // 運行情報（リアルタイム）が届いている便は「走行中」、届いていない便は「未発車」
+            (r.live ? '<span class="tag tag-live">走行中</span>' : '<span class="tag">未発車</span>') +
           "</div>" +
           // 3行目: 荻窪駅からは「降り場：清水二丁目」、荻窪駅行きは「八丁 ▶ 降り場：荻窪駅」（乗るバス停 ▶ 降り場）
           '<div class="line2">' + (fromMode
