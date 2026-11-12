@@ -37,7 +37,10 @@ header {
   padding: 1.2vmin 2.4vmin 0.8vmin;
   border-bottom: 1px solid var(--hair);
 }
-#title  { font-size: clamp(13px, 2.4vmin, 22px); color: var(--dim); letter-spacing: .08em; }
+#title  { font-size: clamp(13px, 2.4vmin, 22px); color: var(--dim); letter-spacing: .08em;
+          display: inline-flex; align-items: center; gap: .45em; }
+/* いさバスのマーク。「いさ」の字が読める大きさにする */
+#mark   { height: clamp(36px, 6.4vmin, 60px); width: auto; flex: 0 0 auto; display: block; }
 
 /* 表示の切り替えボタン（荻窪駅行き ⇄ 荻窪駅から） */
 #mode {
@@ -265,6 +268,7 @@ footer { padding-bottom: calc(1.2vmin + env(safe-area-inset-bottom, 0px)); }
   .arr   { font-size: clamp(11px, 3.4vw, 22px); }
   .map   { font-size: clamp(13px, 3.8vw, 22px); padding: .35em .4em; }   /* 小さくても押せるよう、押せる範囲は広めに */
   #title { font-size: clamp(13px, 3.8vw, 22px); }
+  #mark  { height: clamp(38px, 11vw, 60px); }
   #clock { font-size: clamp(18px, 6vw, 34px); }
   #mode  { font-size: clamp(14px, 4.2vw, 26px); }
   #filterbar { padding: 1.6vw 4vw; }
