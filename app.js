@@ -274,7 +274,7 @@ function fetchArrayBuffer(url) {
 /* ===========================================================================
    6. 端末内の保存
    =========================================================================== */
-var APP_VERSION = "40";   // 更新が反映されたかを設定画面で確かめるための番号（index.html の ?v= と揃える）
+var APP_VERSION = "41";   // 更新が反映されたかを設定画面で確かめるための番号（index.html の ?v= と揃える）
 var KEY_TOKEN = "busboard.token";
 // トークンは同じサイト（jlsawo.github.io）のいさバスと共有し、時刻表はアプリごとに分ける
 var KEY_DATA  = BUSBOARD_CONFIG.storageKey || "busboard.timetable";
@@ -359,6 +359,14 @@ function render() {
     var opt = BUSBOARD_CONFIG.optional;
     if (!fromMode && !STATE.showOptional && opt) {
       applied = applied.filter(function (r) { return opt.keys.indexOf(r.stop.key) < 0; });
+    }
+    // 「荻窪駅から」で出さない系統（config.js の returnMode.excludeRoutes。例: "51" は 51・荻51 など）
+    var ex = fromMode && (BUSBOARD_CONFIG.returnMode || {}).excludeRoutes;
+    if (ex && ex.length) {
+      applied = applied.filter(function (r) {
+        var b = baseRoute(r.route), num = b.replace(/^\D+/, "");
+        return ex.indexOf(b) < 0 && ex.indexOf(num) < 0;
+      });
     }
     rows = pickTop(applied, nowMs);
   }
