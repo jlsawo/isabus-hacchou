@@ -109,11 +109,27 @@ function decodeTripUpdate(u8, b, e) {
   return o;
 }
 
-// FeedMessage { 1:header 2:entity[] } / FeedHeader{3:timestamp} / FeedEntity{3:trip_update}
+// VehiclePosition { 1:trip 3:current_stop_sequence 4:current_status 7:stop_id }
+// current_status: 0 INCOMING_AT（まもなく着く） 1 STOPPED_AT（停車中） 2 IN_TRANSIT_TO（走行中。省略時はこれ）
+var VP_STOPPED_AT = 1;
+function decodeVehicle(u8, b, e) {
+  var o = { tripId: null, seq: null, status: 2, stopId: null };
+  eachField(u8, b, e, function (f, w, v, cb2, ce2) {
+    if (f === 1 && w === 2) {
+      eachField(u8, cb2, ce2, function (tf, tw, tv, tb, te) { if (tf === 1 && tw === 2) o.tripId = str(u8, tb, te); });
+    }
+    else if (f === 3 && w === 0) o.seq = v.lo;
+    else if (f === 4 && w === 0) o.status = v.lo;
+    else if (f === 7 && w === 2) o.stopId = str(u8, cb2, ce2);
+  });
+  return o;
+}
+
+// FeedMessage { 1:header 2:entity[] } / FeedHeader{3:timestamp} / FeedEntity{3:trip_update 4:vehicle}
 function decodeFeed(buf) {
   var u8 = new Uint8Array(buf);
   var headerTs = 0;
-  var trips = {};
+  var trips = {}, vehicles = {};
   eachField(u8, 0, u8.length, function (f, w, v, b, e) {
     if (f === 1 && w === 2) {
       eachField(u8, b, e, function (hf, hw, hv) { if (hf === 3 && hw === 0) headerTs = u64(hv); });
@@ -122,11 +138,14 @@ function decodeFeed(buf) {
         if (ef === 3 && ew === 2) {
           var tu = decodeTripUpdate(u8, eb, ee);
           if (tu.tripId) trips[tu.tripId] = tu;
+        } else if (ef === 4 && ew === 2) {
+          var vp = decodeVehicle(u8, eb, ee);
+          if (vp.tripId) vehicles[vp.tripId] = vp;
         }
       });
     }
   });
-  return { headerTs: headerTs, trips: trips };
+  return { headerTs: headerTs, trips: trips, vehicles: vehicles };
 }
 
 /* ===========================================================================
@@ -169,7 +188,8 @@ function scheduledDepartures(data, now, trips, stops) {
         route:   data.routes[tr[4]],
         sign:    data.signs[tr[5]],
         schedMs: base + tr[6] * 1000,
-        arrMs:   tr[8] != null ? base + tr[8] * 1000 : null
+        arrMs:   tr[8] != null ? base + tr[8] * 1000 : null,
+        origin:  tr[9] === 1   // 乗るのりばがこの便の始発（荻窪駅からのみ）
       });
     }
   }
@@ -215,7 +235,7 @@ function applyRealtime(sched, rt) {
     }
 
     rows.push({
-      tripId: s.tripId, op: s.op, stop: s.stop,
+      tripId: s.tripId, op: s.op, stop: s.stop, seq: s.seq, origin: s.origin,
       route: s.route, sign: s.sign,
       schedMs: s.schedMs, ms: ms, live: live,
       // 降りるのりばに着く時刻は、乗るのりばでの遅れをそのまま足した見込み
@@ -274,7 +294,7 @@ function fetchArrayBuffer(url) {
 /* ===========================================================================
    6. 端末内の保存
    =========================================================================== */
-var APP_VERSION = "46";   // 更新が反映されたかを設定画面で確かめるための番号（index.html の ?v= と揃える）
+var APP_VERSION = "47";   // 更新が反映されたかを設定画面で確かめるための番号（index.html の ?v= と揃える）
 var KEY_TOKEN = "busboard.token";
 // トークンは同じサイト（jlsawo.github.io）のいさバスと共有し、時刻表はアプリごとに分ける
 var KEY_DATA  = BUSBOARD_CONFIG.storageKey || "busboard.timetable";
@@ -310,6 +330,41 @@ function feedsFor(token) {
   return out;
 }
 
+// バスの位置の取得先（取れないとわかったバス会社は除く）
+function vpFeedsFor(token) {
+  var out = [];
+  for (var k in BUSBOARD_CONFIG.operators) {
+    if (STATE.vpOff[k]) continue;
+    var u = BUSBOARD_CONFIG.operators[k].vehiclePositionUrl;
+    if (token) { if (u) out.push({ key: k, url: GTFS.addToken(u, token) }); }
+    else if (BUSBOARD_CONFIG.proxy) out.push({ key: k, url: BUSBOARD_CONFIG.proxy + "/vp/" + k });
+  }
+  return out;
+}
+
+// 便の状態: "wait" 発車待ち / "run" 走行中 / "none" 未発車
+// 発車待ちは、乗るのりばがその便の始発で、まだ発車時刻前のときだけ。
+//  - バスの位置が取れていれば、そののりばに「停車中」かで決める
+//  - 位置が無ければ、運行情報が届いていれば（=のりばで発車を待っている頃）発車待ちとみなす
+function busState(r, nowMs) {
+  if (r.origin && r.ms > nowMs) {
+    var vs = STATE.vp[r.op.key] && STATE.vp[r.op.key].vehicles;
+    var v = vs && vs[r.tripId];
+    if (v) {
+      if (v.status === VP_STOPPED_AT && (v.stopId === r.stop.stopId || (v.seq != null && v.seq === r.seq))) return "wait";
+      if (v.seq != null && r.seq != null && v.seq > r.seq) return "run";   // もう発車した
+      return "none";                                                     // のりばへ向かっている途中など
+    }
+    if (r.live) return "wait";
+  }
+  return r.live ? "run" : "none";
+}
+var STATE_TAG = {
+  wait: '<span class="tag tag-wait">発車待ち</span>',
+  run:  '<span class="tag tag-live">走行中</span>',
+  none: '<span class="tag">未発車</span>'
+};
+
 /* ===========================================================================
    7. 状態と描画
    =========================================================================== */
@@ -317,6 +372,8 @@ var STATE = {
   data:          null,   // 静的時刻表
   token:         null,
   rt:            {},     // { seibu: {headerTs, trips}, kanto: {...} }
+  vp:            {},     // バスの位置 { seibu: {headerTs, vehicles}, ... }（取れないバス会社は無し）
+  vpOff:         {},     // 位置が取れなかった（中継サーバーが未対応など）バス会社。この起動中はもう取りに行かない
   feedTs:        0,      // 表示用のデータ生成時刻（feed header timestamp の最大）
   lastOkMs:      0,      // 最後に取得に成功した時刻
   lastTryMs:     0,
@@ -397,13 +454,13 @@ function render() {
           '<div class="line1">' +
             '<span class="sign">' + esc(r.sign) + "</span>" +
           "</div>" +
-          // 2行目: 系統番号、その右にのりば（荻窪駅からのみ。押すと地図）、バス会社、走行中／未発車
+          // 2行目: 系統番号、その右にのりば（荻窪駅からのみ。押すと地図）、バス会社、発車待ち／走行中／未発車
           '<div class="line3">' +
             '<span class="route">' + esc(r.route) + "</span>" +
             (fromMode && r.stop.lat && r.stop.lon ? poleButton(r) : "") +
             '<span class="op op-' + r.op.key + '">' + esc(r.op.label) + "</span>" +
-            // 運行情報（リアルタイム）が届いている便は「走行中」、届いていない便は「未発車」
-            (r.live ? '<span class="tag tag-live">走行中</span>' : '<span class="tag">未発車</span>') +
+            // 発車待ち（始発ののりばで発車を待っている）／走行中（運行情報あり）／未発車
+            STATE_TAG[busState(r, nowMs)] +
           "</div>" +
           // 3行目: 荻窪駅からは「降り場：清水二丁目」、荻窪駅行きは「八丁 ▶ 降り場：荻窪駅」（乗るバス停 ▶ 降り場）
           '<div class="line2">' + (fromMode
@@ -909,6 +966,15 @@ function refresh() {
     );
   });
 
+  // バスの位置は、取れなくても画面にエラーを出さない（取れなければ使わないだけ）
+  var vpJobs = vpFeedsFor(getToken()).map(function (f) {
+    return fetchArrayBuffer(f.url).then(
+      function (buf) { STATE.vp[f.key] = decodeFeed(buf); },
+      function () { STATE.vpOff[f.key] = true; delete STATE.vp[f.key]; }
+    );
+  });
+  jobs = jobs.concat(vpJobs.map(function (p) { return p.then(function () { return {}; }); }));
+
   Promise.all(jobs).then(function (results) {
     var okCount = 0, ts = 0, errs = [];
     for (var i = 0; i < results.length; i++) {
@@ -917,7 +983,7 @@ function refresh() {
         STATE.rt[r.key] = r.feed;
         if (r.feed.headerTs > ts) ts = r.feed.headerTs;
         okCount++;
-      } else {
+      } else if (r.key) {
         errs.push(r.key + ": " + (r.error && r.error.message ? r.error.message : "失敗"));
       }
     }
@@ -995,6 +1061,10 @@ function diagnose() {
     lines.push(op.label + ": 今日の運行パターン " + svcs.length +
                (svcs.length ? "（" + svcs.slice(0, 3).map(function (k) { return k.split("|")[1]; }).join(", ") + (svcs.length > 3 ? " ほか" : "") + "）" : "") +
                " / RT " + (feed ? nTrips + " 便・生成 " + hhmmss(new Date(feed.headerTs * 1000)) + "・時刻表と一致 " + match : "未取得"));
+    var vp = STATE.vp[op.key], vs = vp ? Object.keys(vp.vehicles) : [];
+    lines.push(op.label + " 位置: " + (vp ? vs.length + " 台（停車中 " +
+               vs.filter(function (k) { return vp.vehicles[k].status === VP_STOPPED_AT; }).length + "）" :
+               STATE.vpOff[op.key] ? "取れません（中継サーバーが未対応など。運行情報で代用）" : "未取得"));
   });
 
   d.ops.forEach(function (op) {

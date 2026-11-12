@@ -13,7 +13,7 @@ var GTFS = (function () {
   // 保存する時刻表の形式の番号。中身の形を変えたら上げると、スマホ側で自動的に作り直される
   //   2: 「荻窪駅から」の乗り場に緯度・経度を持たせた
   //   3: 荻窪駅のすべてののりば（poles）を持たせた（乗り場の絵に点で描くため）
-  var FORMAT = 3;
+  var FORMAT = 4;   // 4: 荻窪駅からの便に「乗るのりばが始発か」を追加
 
   /* ---------- 取得 ---------- */
   function addToken(url, token) {
@@ -277,6 +277,7 @@ var GTFS = (function () {
 
         var buf, entries;
         var hits = [], tripIds = {}, routeName = {}, tripInfo = {}, used = {};
+        var firstSeq = {};   // trip_id -> 最初の停留所の stop_sequence（始発かどうかを見るため）
         var cal = [], calDates = [];
 
         log(op.label + "バス: 時刻表をダウンロード中…");
@@ -309,6 +310,8 @@ var GTFS = (function () {
           return forEachRow(buf, entries, "stop_times.txt", function (v, ix) {
             var sid = v[ix.stop_id];
             var isT = sid in targets, isR = sid in retTargets, isF = sid in fromPoles;
+            var sq0 = parseInt(v[ix.stop_sequence], 10), tid0 = v[ix.trip_id];
+            if (!(firstSeq[tid0] <= sq0)) firstSeq[tid0] = sq0;
             if (!isT && !isR && !isF) return;
             var tid = v[ix.trip_id], seq = parseInt(v[ix.stop_sequence], 10);
             if (isR) {
@@ -390,10 +393,11 @@ var GTFS = (function () {
                               direction: "→ " + rs.name, stopId: h.from.sid, lat: pole.lat, lon: pole.lon });
             }
             used[info.service] = 1;
-            // 荻窪駅を出る時刻で並べる。[8] は降りるのりばに着く時刻
+            // 荻窪駅を出る時刻で並べる。[8] は降りるのりばに着く時刻、[9] は乗るのりばが始発か
             retTrips.push([h.tripId, opIndex[opKey], retStopMap[key], h.from.seq,
                            pool(routeMap, routes, info.route), pool(signMap, signs, info.sign || info.route),
-                           h.from.dep, opKey + "|" + info.service, h.arr]);
+                           h.from.dep, opKey + "|" + info.service, h.arr,
+                           h.from.seq === firstSeq[h.tripId] ? 1 : 0]);   // [9] 乗るのりばが始発なら 1
             retKept++;
           });
           if (!kept && !retKept) throw new Error(op.label + "バスで対象のりばの便が見つかりませんでした");

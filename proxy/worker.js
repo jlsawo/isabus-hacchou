@@ -7,6 +7,7 @@
    同じ情報は短い時間だけ使い回し、ODPT への問い合わせを増やしすぎない。
 
      GET /rt/seibu   GET /rt/kanto     リアルタイム情報（GTFS-RT TripUpdate）  20秒使い回し
+     GET /vp/seibu   GET /vp/kanto     バスの位置（GTFS-RT VehiclePosition）   20秒使い回し
      GET /gtfs/seibu GET /gtfs/kanto   時刻表（GTFS zip）                       6時間使い回し
 
    設置は GitHub Actions（.github/workflows/proxy.yml）が行う。
@@ -17,10 +18,12 @@ const ALLOWED_ORIGINS = ["https://jlsawo.github.io"];
 const UPSTREAM = {
   seibu: {
     rt:   "https://api.odpt.org/api/v4/gtfs/realtime/SeibuBus_trip_update",
+    vp:   "https://api.odpt.org/api/v4/gtfs/realtime/SeibuBus_vehicle",
     gtfs: "https://api.odpt.org/api/v4/files/SeibuBus/data/SeibuBus-GTFS.zip"
   },
   kanto: {
     rt:   "https://api.odpt.org/api/v4/gtfs/realtime/odpt_KantoBus_AllLines_trip_update",
+    vp:   "https://api.odpt.org/api/v4/gtfs/realtime/odpt_KantoBus_AllLines_vehicle",
     // 関東バスの GTFS は版ごとに date が変わるので CKAN で最新版を調べる。だめなら fallbackDate
     gtfsTemplate: "https://api.odpt.org/api/v4/files/odpt/KantoBus/AllLines.zip?date={DATE}",
     ckan: "https://ckan.odpt.org/api/3/action/package_show?id=kanto_bus_all_lines",
@@ -28,7 +31,7 @@ const UPSTREAM = {
   }
 };
 
-const TTL = { rt: 20, gtfs: 6 * 3600 };   // 使い回す秒数
+const TTL = { rt: 20, vp: 20, gtfs: 6 * 3600 };   // 使い回す秒数
 
 function cors(origin) {
   return {
@@ -64,7 +67,7 @@ export default {
     if (!allowed) return new Response("forbidden", { status: 403 });
     if (request.method !== "GET") return new Response("method not allowed", { status: 405, headers: cors(origin) });
 
-    const m = new URL(request.url).pathname.match(/^\/(rt|gtfs)\/(seibu|kanto)$/);
+    const m = new URL(request.url).pathname.match(/^\/(rt|vp|gtfs)\/(seibu|kanto)$/);
     if (!m) return new Response("not found", { status: 404, headers: cors(origin) });
     const [, kind, op] = m;
     if (!env.ODPT_TOKEN) return new Response("token not configured", { status: 500, headers: cors(origin) });
@@ -75,7 +78,7 @@ export default {
     let res = await cache.match(key);
     if (!res) {
       const up = UPSTREAM[op];
-      const url = kind === "rt" ? up.rt : (up.gtfs || await kantoGtfsUrl(up));
+      const url = kind === "gtfs" ? (up.gtfs || await kantoGtfsUrl(up)) : up[kind];
       const upstream = await fetch(addToken(url, env.ODPT_TOKEN));
       if (!upstream.ok) {
         // ODPT の応答本文はそのまま返さない（トークンの断片が含まれる可能性に備える）
@@ -83,7 +86,7 @@ export default {
       }
       res = new Response(upstream.body, {
         headers: {
-          "Content-Type": kind === "rt" ? "application/x-protobuf" : "application/zip",
+          "Content-Type": kind === "gtfs" ? "application/zip" : "application/x-protobuf",
           "Cache-Control": "public, max-age=" + TTL[kind]
         }
       });

@@ -32,6 +32,8 @@ var BUSBOARD_CONFIG = {
       label: "西武",
       gtfsUrl: "https://api.odpt.org/api/v4/files/SeibuBus/data/SeibuBus-GTFS.zip",
       tripUpdateUrl: "https://api.odpt.org/api/v4/gtfs/realtime/SeibuBus_trip_update",
+      // バスの位置（のりばに停車中か）。取れなければ使わずに動く
+      vehiclePositionUrl: "https://api.odpt.org/api/v4/gtfs/realtime/SeibuBus_vehicle",
       extendExpiredCalendar: true
     },
     kanto: {
@@ -42,6 +44,7 @@ var BUSBOARD_CONFIG = {
       ckanApi: "https://ckan.odpt.org/api/3/action/package_show?id=kanto_bus_all_lines",
       gtfsFallbackDate: "20261014",
       tripUpdateUrl: "https://api.odpt.org/api/v4/gtfs/realtime/odpt_KantoBus_AllLines_trip_update",
+      vehiclePositionUrl: "https://api.odpt.org/api/v4/gtfs/realtime/odpt_KantoBus_AllLines_vehicle",
       // 関東バスのデータは運行日の期限（end_date）が版の日付で切れていることがある。
       // そのときは最後のダイヤを延長して使い、祝日は日曜のダイヤにする（gtfs.js 参照）。
       extendExpiredCalendar: true
