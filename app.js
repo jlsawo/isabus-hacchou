@@ -274,7 +274,7 @@ function fetchArrayBuffer(url) {
 /* ===========================================================================
    6. 端末内の保存
    =========================================================================== */
-var APP_VERSION = "42";   // 更新が反映されたかを設定画面で確かめるための番号（index.html の ?v= と揃える）
+var APP_VERSION = "43";   // 更新が反映されたかを設定画面で確かめるための番号（index.html の ?v= と揃える）
 var KEY_TOKEN = "busboard.token";
 // トークンは同じサイト（jlsawo.github.io）のいさバスと共有し、時刻表はアプリごとに分ける
 var KEY_DATA  = BUSBOARD_CONFIG.storageKey || "busboard.timetable";
@@ -833,7 +833,7 @@ $bubble.addEventListener("click", function (e) {
 });
 document.addEventListener("keydown", function (e) { if (e.key === "Escape") closeMapBubble(); });
 
-// 画面上部の帯: 「ホーム画面に追加」（インストールできるときだけ）と「八丁あり」（荻窪駅行きのときだけ）
+// 画面上部の帯: 「アプリをインストール」（インストールできるときだけ）と「八丁あり」（荻窪駅行きのときだけ）
 function updateBar() {
   var showOpt = STATE.mode !== "from" && !!BUSBOARD_CONFIG.optional;
   var showInstall = !!STATE.installPrompt;
