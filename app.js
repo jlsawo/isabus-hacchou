@@ -294,7 +294,7 @@ function fetchArrayBuffer(url) {
 /* ===========================================================================
    6. 端末内の保存
    =========================================================================== */
-var APP_VERSION = "50";   // 更新が反映されたかを設定画面で確かめるための番号（index.html の ?v= と揃える）
+var APP_VERSION = "51";   // 更新が反映されたかを設定画面で確かめるための番号（index.html の ?v= と揃える）
 var KEY_TOKEN = "busboard.token";
 // トークンは同じサイト（jlsawo.github.io）のいさバスと共有し、時刻表はアプリごとに分ける
 var KEY_DATA  = BUSBOARD_CONFIG.storageKey || "busboard.timetable";
@@ -368,7 +368,7 @@ var STATE_TAG = {
 var TAG_TIP = {
   wait: "このバスは始発バスで発車待ちです。今ならまだ乗ることができます。",
   run:  "このバスは走行中です。GPSで実際の時間を表示しています。",
-  none: "このバスの運行情報は、まだ届いていません。たいていは始発を出る前の便です。時刻は時刻表どおりの見込みです。"
+  none: "このバスは未発車です。\n発車の準備が整ったら、発車待ちか走行中にステータスが変更されます。"
 };
 
 /* ===========================================================================
@@ -924,7 +924,7 @@ function openTip(tag) {
   var kind = tag.getAttribute("data-tip");
   if (!$tip.hidden && TIP_FOR === kind) { closeTip(); return; }   // 同じ印をもう一度押したら閉じる
   TIP_FOR = kind;
-  $tip.innerHTML = '<b class="tp-name">' + esc(tag.textContent) + "</b>" + esc(TAG_TIP[kind] || "") + '<span class="tp-arrow"></span>';
+  $tip.innerHTML = '<b class="tp-name">' + esc(tag.textContent) + "</b>" + esc(TAG_TIP[kind] || "").replace(/\n/g, "<br>") + '<span class="tp-arrow"></span>';
   $tip.className = "tip-" + kind;
   $tip.hidden = false;
   var r = tag.getBoundingClientRect(), bw = $tip.offsetWidth, bh = $tip.offsetHeight;
