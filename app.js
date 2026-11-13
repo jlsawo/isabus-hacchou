@@ -294,7 +294,7 @@ function fetchArrayBuffer(url) {
 /* ===========================================================================
    6. 端末内の保存
    =========================================================================== */
-var APP_VERSION = "49";   // 更新が反映されたかを設定画面で確かめるための番号（index.html の ?v= と揃える）
+var APP_VERSION = "50";   // 更新が反映されたかを設定画面で確かめるための番号（index.html の ?v= と揃える）
 var KEY_TOKEN = "busboard.token";
 // トークンは同じサイト（jlsawo.github.io）のいさバスと共有し、時刻表はアプリごとに分ける
 var KEY_DATA  = BUSBOARD_CONFIG.storageKey || "busboard.timetable";
@@ -366,7 +366,7 @@ var STATE_TAG = {
   none: '<button type="button" class="tag" data-tip="none">未発車</button>'
 };
 var TAG_TIP = {
-  wait: "このバスは、ここが始発ののりばで、発車時刻を待っています。今行けば乗れます。",
+  wait: "このバスは始発バスで発車待ちです。今ならまだ乗ることができます。",
   run:  "このバスは走行中です。GPSで実際の時間を表示しています。",
   none: "このバスの運行情報は、まだ届いていません。たいていは始発を出る前の便です。時刻は時刻表どおりの見込みです。"
 };
