@@ -294,7 +294,7 @@ function fetchArrayBuffer(url) {
 /* ===========================================================================
    6. 端末内の保存
    =========================================================================== */
-var APP_VERSION = "52";   // 更新が反映されたかを設定画面で確かめるための番号（index.html の ?v= と揃える）
+var APP_VERSION = "53";   // 更新が反映されたかを設定画面で確かめるための番号（index.html の ?v= と揃える）
 var KEY_TOKEN = "busboard.token";
 // トークンは同じサイト（jlsawo.github.io）のいさバスと共有し、時刻表はアプリごとに分ける
 var KEY_DATA  = BUSBOARD_CONFIG.storageKey || "busboard.timetable";
@@ -365,6 +365,12 @@ var STATE_TAG = {
   run:  '<button type="button" class="tag tag-live" data-tip="run">走行中</button>',
   none: '<button type="button" class="tag" data-tip="none">未発車</button>'
 };
+// 未発車は、まもなく・3分以内の便には付けない（時刻表でもうすぐの便に「未発車」と出ると紛らわしいため）
+var HIDE_NONE_WITHIN_MIN = 3;
+function tagFor(state, mins) {
+  if (state === "none" && mins <= HIDE_NONE_WITHIN_MIN) return "";
+  return STATE_TAG[state];
+}
 var TAG_TIP = {
   wait: "このバスは始発バスで発車待ちです。今ならまだ乗ることができます。",
   run:  "このバスは走行中です。GPSで実際の時間を表示しています。",
@@ -459,7 +465,7 @@ function render() {
           // その右に発車待ち（始発ののりばで発車を待っている）／走行中（運行情報あり）／未発車の印
           '<div class="line1">' +
             '<span class="sign">' + esc(r.sign) + "</span>" +
-            STATE_TAG[busState(r, nowMs)] +
+            tagFor(busState(r, nowMs), mins) +
           "</div>" +
           // 2行目: 系統番号、その右にのりば（荻窪駅からのみ。押すと地図）、バス会社
           '<div class="line3">' +
