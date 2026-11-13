@@ -233,7 +233,10 @@ body.stale .row .mins { color: var(--stale) !important; }
 /* 行先表示を流す（収まらない行先だけ） */
 .line1.mq .sign { display: block; overflow: hidden; flex: 1 1 auto; min-width: 0; }
 .mq-track { display: inline-flex; white-space: nowrap; animation: mq linear infinite; will-change: transform; }
-.mq-copy { padding-right: 2.5em; }   /* 流れてくる次の行先との間 */
+.mq-copy { padding-right: 2em; }   /* 流れてくる次の行先との間 */
+.mq-head { font-style: normal; color: var(--soon); font-size: .8em; margin-right: .35em; vertical-align: .08em; }   /* 行先の頭の印 */
+/* 1行目の右の印（発車待ち・走行中・未発車）。行先が長くても縮まず、行先のほうが流れる */
+.line1 .tag { align-self: center; }
 @keyframes mq { 0%, 25% { transform: translateX(0); } 100% { transform: translateX(-50%); } }
 .arr { flex: 0 0 auto; font-size: clamp(11px, 2.2vmin, 21px); font-weight: 700; color: #c3cad3; font-variant-numeric: tabular-nums; }
 .op-kanto { background: var(--kanto); }

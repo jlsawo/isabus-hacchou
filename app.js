@@ -294,7 +294,7 @@ function fetchArrayBuffer(url) {
 /* ===========================================================================
    6. 端末内の保存
    =========================================================================== */
-var APP_VERSION = "51";   // 更新が反映されたかを設定画面で確かめるための番号（index.html の ?v= と揃える）
+var APP_VERSION = "52";   // 更新が反映されたかを設定画面で確かめるための番号（index.html の ?v= と揃える）
 var KEY_TOKEN = "busboard.token";
 // トークンは同じサイト（jlsawo.github.io）のいさバスと共有し、時刻表はアプリごとに分ける
 var KEY_DATA  = BUSBOARD_CONFIG.storageKey || "busboard.timetable";
@@ -455,18 +455,17 @@ function render() {
       '<li class="row stop-' + r.stop.key + (soon ? " is-soon" : "") + '">' +
         '<div class="mins"' + stopColorAttr(r.stop.colorKey || r.stop.key) + ">" + minsHtml + "</div>" +
         '<div class="info">' +
-          // 1行目: 系統と行先（バス会社の行先表示のまま、改行せず1行。長いときは fitSigns が文字を小さくする）
-          // （系統は3行目に置き、行先が1行目を広く使えるようにする）
+          // 1行目: 行先（バス会社の行先表示のまま、改行せず1行。長いときは fitSigns が流す）と、
+          // その右に発車待ち（始発ののりばで発車を待っている）／走行中（運行情報あり）／未発車の印
           '<div class="line1">' +
             '<span class="sign">' + esc(r.sign) + "</span>" +
+            STATE_TAG[busState(r, nowMs)] +
           "</div>" +
-          // 2行目: 系統番号、その右にのりば（荻窪駅からのみ。押すと地図）、バス会社、発車待ち／走行中／未発車
+          // 2行目: 系統番号、その右にのりば（荻窪駅からのみ。押すと地図）、バス会社
           '<div class="line3">' +
             '<span class="route">' + esc(r.route) + "</span>" +
             (fromMode && r.stop.lat && r.stop.lon ? poleButton(r) : "") +
             '<span class="op op-' + r.op.key + '">' + esc(r.op.label) + "</span>" +
-            // 発車待ち（始発ののりばで発車を待っている）／走行中（運行情報あり）／未発車
-            STATE_TAG[busState(r, nowMs)] +
           "</div>" +
           // 3行目: 荻窪駅からは「降り場：清水二丁目」、荻窪駅行きは「八丁 ▶ 降り場：荻窪駅」（乗るバス停 ▶ 降り場）
           '<div class="line2">' + (fromMode
@@ -537,7 +536,8 @@ function fitLine(box, target, min) {
 }
 // 行先が1行に収まらないときは、バスの行先表示のようにゆっくり流す（左へ流れ、左から右へ読める）。
 // 流れる速さは一定で、端まで行ったら頭に戻ってくり返す。動きを減らす設定の端末では、流さずに文字を小さくする。
-var MARQUEE_PX_PER_SEC = 40;   // 流れる速さ（1秒あたりの画素）
+// 行先の頭には黄色の ◆ を付け、どこから始まるかがわかるようにする。
+var MARQUEE_PX_PER_SEC = 26;   // 流れる速さ（1秒あたりの画素）
 var MARQUEE_HOLD = 0.25;       // 1周のうち、頭で止まっている割合
 var REDUCED_MOTION = window.matchMedia && window.matchMedia("(prefers-reduced-motion: reduce)").matches;
 function marquee(box, sign) {
@@ -545,7 +545,8 @@ function marquee(box, sign) {
   if (box.scrollWidth <= box.clientWidth) return false;
   if (REDUCED_MOTION) return false;
   var text = sign.textContent;
-  sign.innerHTML = '<span class="mq-track"><span class="mq-copy">' + esc(text) + '</span><span class="mq-copy" aria-hidden="true">' + esc(text) + "</span></span>";
+  var head = '<i class="mq-head" aria-hidden="true">◆</i>';
+  sign.innerHTML = '<span class="mq-track"><span class="mq-copy">' + head + esc(text) + '</span><span class="mq-copy" aria-hidden="true">' + head + esc(text) + "</span></span>";
   var track = sign.firstChild, dist = track.firstChild.offsetWidth;   // 1つ分（すき間を含む）流すと、ちょうど頭に戻る
   var dur = dist / MARQUEE_PX_PER_SEC / (1 - MARQUEE_HOLD);
   track.style.animationDuration = dur.toFixed(2) + "s";
