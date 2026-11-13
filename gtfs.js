@@ -13,7 +13,7 @@ var GTFS = (function () {
   // 保存する時刻表の形式の番号。中身の形を変えたら上げると、スマホ側で自動的に作り直される
   //   2: 「荻窪駅から」の乗り場に緯度・経度を持たせた
   //   3: 荻窪駅のすべてののりば（poles）を持たせた（乗り場の絵に点で描くため）
-  var FORMAT = 4;   // 4: 荻窪駅からの便に「乗るのりばが始発か」を追加
+  var FORMAT = 5;   // 4: 荻窪駅からの便に「乗るのりばが始発か」を追加 5: 荻窪駅行きの便に「始発を出る時刻」を追加
 
   /* ---------- 取得 ---------- */
   function addToken(url, token) {
@@ -278,6 +278,7 @@ var GTFS = (function () {
         var buf, entries;
         var hits = [], tripIds = {}, routeName = {}, tripInfo = {}, used = {};
         var firstSeq = {};   // trip_id -> 最初の停留所の stop_sequence（始発かどうかを見るため）
+        var firstDep = {};   // trip_id -> 始発を出る時刻（秒）。走っているはずの便かを見るため
         var cal = [], calDates = [];
 
         log(op.label + "バス: 時刻表をダウンロード中…");
@@ -311,7 +312,10 @@ var GTFS = (function () {
             var sid = v[ix.stop_id];
             var isT = sid in targets, isR = sid in retTargets, isF = sid in fromPoles;
             var sq0 = parseInt(v[ix.stop_sequence], 10), tid0 = v[ix.trip_id];
-            if (!(firstSeq[tid0] <= sq0)) firstSeq[tid0] = sq0;
+            if (!(firstSeq[tid0] <= sq0)) {
+              firstSeq[tid0] = sq0;
+              firstDep[tid0] = toSeconds(col(v, ix, "departure_time") || col(v, ix, "arrival_time"));
+            }
             if (!isT && !isR && !isF) return;
             var tid = v[ix.trip_id], seq = parseInt(v[ix.stop_sequence], 10);
             if (isR) {
@@ -375,9 +379,11 @@ var GTFS = (function () {
             var svcKey = opKey + "|" + info.service;
             used[info.service] = 1;
             // [0]tripId [1]opIdx [2]stopIdx [3]stopSeq [4]routeIdx [5]signIdx [6]depSec [7]svcKey
+            // [8]（荻窪駅からのみ） [9] のりばが始発なら 1 [10] 始発を出る時刻（秒）
+            var fd = firstDep[h.tripId];
             trips.push([h.tripId, opIndex[opKey], h.stopIdx, h.seq,
                         pool(routeMap, routes, info.route), pool(signMap, signs, info.sign || info.route),
-                        h.dep, svcKey]);
+                        h.dep, svcKey, null, h.seq === firstSeq[h.tripId] ? 1 : 0, fd != null ? fd : null]);
             kept++;
           });
           var retKept = 0;

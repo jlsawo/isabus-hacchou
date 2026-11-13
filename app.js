@@ -189,7 +189,8 @@ function scheduledDepartures(data, now, trips, stops) {
         sign:    data.signs[tr[5]],
         schedMs: base + tr[6] * 1000,
         arrMs:   tr[8] != null ? base + tr[8] * 1000 : null,
-        origin:  tr[9] === 1   // 乗るのりばがこの便の始発（荻窪駅からのみ）
+        origin:  tr[9] === 1,  // 乗るのりばがこの便の始発
+        startMs: tr[10] != null ? base + tr[10] * 1000 : null   // 始発を出る時刻（荻窪駅行きのみ）
       });
     }
   }
@@ -235,7 +236,7 @@ function applyRealtime(sched, rt) {
     }
 
     rows.push({
-      tripId: s.tripId, op: s.op, stop: s.stop, seq: s.seq, origin: s.origin,
+      tripId: s.tripId, op: s.op, stop: s.stop, seq: s.seq, origin: s.origin, startMs: s.startMs,
       route: s.route, sign: s.sign,
       schedMs: s.schedMs, ms: ms, live: live,
       // 降りるのりばに着く時刻は、乗るのりばでの遅れをそのまま足した見込み
@@ -294,12 +295,13 @@ function fetchArrayBuffer(url) {
 /* ===========================================================================
    6. 端末内の保存
    =========================================================================== */
-var APP_VERSION = "53";   // 更新が反映されたかを設定画面で確かめるための番号（index.html の ?v= と揃える）
+var APP_VERSION = "55";   // 更新が反映されたかを設定画面で確かめるための番号（index.html の ?v= と揃える）
 var KEY_TOKEN = "busboard.token";
 // トークンは同じサイト（jlsawo.github.io）のいさバスと共有し、時刻表はアプリごとに分ける
 var KEY_DATA  = BUSBOARD_CONFIG.storageKey || "busboard.timetable";
 var KEY_MODE  = (BUSBOARD_CONFIG.storageKey || "busboard") + ".mode";
 var KEY_OPTIONAL = (BUSBOARD_CONFIG.storageKey || "busboard") + ".showOptional";
+var KEY_AUTOREBUILD = (BUSBOARD_CONFIG.storageKey || "busboard") + ".autoRebuild";   // 自動で時刻表を取り直した時刻と理由
 
 /* 表示の切り替え: "to" = 荻窪駅行き、"from" = 荻窪駅から（法務局・清水二丁目へ） */
 var MODES = {
@@ -342,7 +344,8 @@ function vpFeedsFor(token) {
   return out;
 }
 
-// 便の状態: "wait" 発車待ち / "run" 走行中 / "none" 未発車
+// 便の状態: "wait" 発車待ち / "run" 走行中 / "none" 未発車 / "nodata" 情報なし
+// 情報なし: 時刻表ではもう始発を出ているはずなのに、運行情報が届いていない便
 // 発車待ちは、乗るのりばがその便の始発で、まだ発車時刻前のときだけ。
 //  - バスの位置が取れていれば、そののりばに「停車中」かで決める
 //  - 位置が無ければ、運行情報が届いていれば（=のりばで発車を待っている頃）発車待ちとみなす
@@ -357,24 +360,28 @@ function busState(r, nowMs) {
     }
     if (r.live) return "wait";
   }
-  return r.live ? "run" : "none";
+  if (r.live) return "run";
+  if (r.startMs != null && r.startMs <= nowMs) return "nodata";
+  return "none";
 }
 // 印は押せるボタンにして、押すと意味を吹き出しで出す（TAG_TIP）
 var STATE_TAG = {
   wait: '<button type="button" class="tag tag-wait" data-tip="wait">発車待ち</button>',
   run:  '<button type="button" class="tag tag-live" data-tip="run">走行中</button>',
-  none: '<button type="button" class="tag" data-tip="none">未発車</button>'
+  none: '<button type="button" class="tag" data-tip="none">未発車</button>',
+  nodata: '<button type="button" class="tag tag-nodata" data-tip="nodata">情報なし</button>'
 };
-// 未発車は、まもなく・3分以内の便には付けない（時刻表でもうすぐの便に「未発車」と出ると紛らわしいため）
+// 未発車・情報なしは、まもなく・3分以内の便には付けない（時刻表でもうすぐの便に出ると紛らわしいため）
 var HIDE_NONE_WITHIN_MIN = 3;
 function tagFor(state, mins) {
-  if (state === "none" && mins <= HIDE_NONE_WITHIN_MIN) return "";
+  if ((state === "none" || state === "nodata") && mins <= HIDE_NONE_WITHIN_MIN) return "";
   return STATE_TAG[state];
 }
 var TAG_TIP = {
   wait: "このバスは始発バスで発車待ちです。今ならまだ乗ることができます。",
   run:  "このバスは走行中です。GPSで実際の時間を表示しています。",
-  none: "このバスは未発車です。\n発車の準備が整ったら、発車待ちか走行中にステータスが変更されます。"
+  none: "このバスは未発車です。\n発車の準備が整ったら、発車待ちか走行中にステータスが変更されます。",
+  nodata: "このバスは時刻表ではもう走っているはずですが、GPSの情報が届いていません。時刻は時刻表どおりの見込みです。"
 };
 
 /* ===========================================================================
@@ -1054,6 +1061,7 @@ function refresh() {
       if (ts) STATE.feedTs = ts;
     }
     STATE.lastError = errs.length ? errs.join(" / ") : null;
+    checkTimetableMatch();
   }).catch(function (e) {
     STATE.lastError = e && e.message ? e.message : String(e);
   }).then(function () {
@@ -1085,6 +1093,9 @@ function diagnose() {
   var todayKey = String(ymd(now));
   var todaySvcs = (d.dates && d.dates[todayKey]) || [];
   var lines = ["【診断】" + hhmm(now) + " 時点・この先" + CFG.horizonMin + "分"];
+  var ar = null;
+  try { ar = JSON.parse(load(KEY_AUTOREBUILD) || "null"); } catch (_) {}
+  if (ar) lines.push("前回の時刻表の自動取り直し: " + new Date(ar.at).toLocaleString("ja-JP") + "（" + ar.why + "）");
 
   if (d.retStops) {
     var rs = applyRealtime(scheduledDepartures(d, now, d.retTrips, d.retStops), STATE.rt)
@@ -1123,6 +1134,10 @@ function diagnose() {
     lines.push(op.label + ": 今日の運行パターン " + svcs.length +
                (svcs.length ? "（" + svcs.slice(0, 3).map(function (k) { return k.split("|")[1]; }).join(", ") + (svcs.length > 3 ? " ほか" : "") + "）" : "") +
                " / RT " + (feed ? nTrips + " 便・生成 " + hhmmss(new Date(feed.headerTs * 1000)) + "・時刻表と一致 " + match : "未取得"));
+    if (feed) {
+      var mm = runningMismatch(d, op, feed, nowMs);
+      lines.push(op.label + " 走っているはずの便: " + mm.running + " / うち運行情報あり " + mm.hit + (mm.bad ? "（合っていません）" : ""));
+    }
     var vp = STATE.vp[op.key], vs = vp ? Object.keys(vp.vehicles) : [];
     lines.push(op.label + " 位置: " + (vp ? vs.length + " 台（停車中 " +
                vs.filter(function (k) { return vp.vehicles[k].status === VP_STOPPED_AT; }).length + "）" :
@@ -1170,6 +1185,36 @@ function timetableIsOld(d) {
 }
 
 // 失敗しても手元の時刻表はそのまま使い続ける（次回の起動でまた試す）
+/* ---------- 時刻表と運行情報が合わないときは、時刻表を取り直す ----------
+   バス会社が時刻表を改正したのに手元が古いまま（関東バスで期限切れがあった）だと、走っているはずの便に
+   運行情報がひとつも合わなくなる。そうなったら時刻表を自動で取り直す（取り直しても直らないこともあるので12時間に1回まで）。 */
+var AUTO_REBUILD_GAP_MS = 12 * 3600 * 1000;
+function runningMismatch(d, op, feed, nowMs) {
+  // 時刻表では今まさに走っているはず（始発を出て、まだのりばに着いていない）の便
+  var running = scheduledDepartures(d, new Date(nowMs)).filter(function (s) {
+    return s.op === op && s.startMs != null && s.startMs <= nowMs - 60000 && s.schedMs > nowMs + 60000;
+  });
+  var hit = running.filter(function (s) { return feed.trips[s.tripId]; }).length;
+  return { running: running.length, hit: hit, bad: running.length >= 3 && hit === 0 && Object.keys(feed.trips).length >= 10 };
+}
+function checkTimetableMatch() {
+  var d = STATE.data, nowMs = Date.now();
+  if (!d || STATE.mock || STATE.building || !canFetch()) return;
+  var last = null;
+  try { last = JSON.parse(load(KEY_AUTOREBUILD) || "null"); } catch (_) {}
+  if (last && nowMs - last.at < AUTO_REBUILD_GAP_MS) return;
+  for (var i = 0; i < d.ops.length; i++) {
+    var op = d.ops[i], feed = STATE.rt[op.key];
+    if (!feed) continue;
+    var m = runningMismatch(d, op, feed, nowMs);
+    if (m.bad) {
+      save(KEY_AUTOREBUILD, JSON.stringify({ at: nowMs, why: op.label + "バスの運行情報が時刻表と合わない（走行中のはず " + m.running + " 便のうち一致 0）" }));
+      rebuildTimetable();
+      return;
+    }
+  }
+}
+
 function rebuildTimetable() {
   if (STATE.building || !canFetch()) return Promise.resolve(false);
   STATE.building = true;

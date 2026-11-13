@@ -88,16 +88,17 @@ header > span:last-child { white-space: nowrap; flex: 0 0 auto; }   /* 時計と
 @keyframes spin { to { transform: rotate(360deg); } }
 
 /* ---------- 一覧 ---------- */
-/* 画面には5件（--rows）を見せ、続きはスクロール */
+/* 画面には5件（--rows）を見せ、続きはスクロール。
+   画面の高さが足りない（横向きなど）ときは、文字が重ならないよう行は中身の高さまで伸び、見える件数が減る */
 #list { flex: 1 1 auto; display: flex; flex-direction: column; list-style: none; min-height: 0; overflow-y: auto; --rows: 5; }
 
 .row {
-  flex: 0 0 calc(100% / var(--rows));
+  flex: 0 0 auto;
   display: flex; align-items: center; gap: 2.2vmin;
-  padding: 0 2.4vmin;
+  padding: .5em 2.4vmin;
   background: var(--row);
   border-bottom: 1px solid var(--hair);
-  min-height: 0;
+  min-height: calc(100% / var(--rows));
 }
 .row:nth-child(even) { background: var(--row-alt); }
 
@@ -226,7 +227,7 @@ body.stale .row .mins { color: var(--stale) !important; }
 #tip .tp-name { display: block; font-size: 15px; margin-bottom: 2px; }
 #tip.tip-wait .tp-name { color: #9a6a00; }
 #tip.tip-run  .tp-name { color: #1e7d47; }
-#tip.tip-none .tp-name { color: #4b5563; }
+#tip.tip-none .tp-name, #tip.tip-nodata .tp-name { color: #4b5563; }
 .tp-arrow { position: absolute; top: -7px; width: 14px; height: 14px; background: #f4f6f8; transform: rotate(45deg); border-radius: 2px; }
 #tip.above .tp-arrow { top: auto; bottom: -7px; }
 
@@ -251,6 +252,7 @@ body.stale .row .mins { color: var(--stale) !important; }
 button.tag { font-family: inherit; line-height: inherit; background: transparent; cursor: pointer;
              text-decoration: underline dotted; text-underline-offset: .2em; -webkit-tap-highlight-color: transparent; }
 .tag-live { border-color: #5cc98a; color: #5cc98a; }
+.tag-nodata { border-style: dashed; }   /* 情報なし: 未発車と同じ灰色で、枠を点線に */
 /* 発車待ち（始発ののりばで、今行けば乗れる）は塗りつぶしで一番目立たせる */
 .tag.tag-wait { border-color: var(--soon); background: var(--soon); color: #06080b; font-weight: 700; }
 
